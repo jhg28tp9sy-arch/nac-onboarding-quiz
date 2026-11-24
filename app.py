@@ -15,7 +15,7 @@ from utils.scoring import grade, normalize, spreadsheet_value
 
 ROOT = Path(__file__).resolve().parent
 PAGES = {
-    "directory": ("Staff Directory", "Reference", "Look up coworkers, job titles, and departments."),
+    "directory": ("Staff Directory", "Reference", "Look up coworkers, job titles, and reporting lines."),
     "role_recall": ("Role Recall", "Beginner", "Match coworkers to their job titles and learn which teams they work on."),
     "name_recall": ("Name Recall", "Intermediate", "Match faces to names, then see each coworker’s job title and department."),
     "mastery_exam": ("Mastery Exam", "Advanced", "Recall each coworker’s name and job title from their portrait."),
@@ -23,184 +23,8 @@ PAGES = {
 STAFF_FILTERS = ("staff_query", "staff_department", "staff_sort", "staff_page")
 
 st.set_page_config(page_title="NAC Connect", page_icon=str(ROOT / "assets/logo.png"), layout="wide")
-st.markdown("""
-<style>
-.stApp {
-    --nac-navy: #003c69;
-    --nac-orange: #c75b23;
-    --nac-peach: #ffcfb7;
-    --nac-mist: #f2f5f7;
-    --nac-ink: #18334a;
-    --nac-line: #d8e1e9;
-    --nac-display: Futura, "Century Gothic", "Trebuchet MS", system-ui, sans-serif;
-    background: #fbfcfd;
-}
-.block-container { max-width: 68rem; padding: 3.75rem clamp(1rem, 4vw, 3rem) 4rem; }
-.nac-brand {
-    display:flex; justify-content:space-between; align-items:center; gap:.75rem;
-    min-height:4.75rem; padding:.7rem clamp(1rem, 4vw, 2rem);
-    color:#fff; background:var(--nac-navy); border-radius:.8rem;
-}
-.nac-brand img { display:block; width:9.5rem; max-width:48%; height:auto; }
-.nac-brand span {
-    font:700 .85rem/1.25 var(--nac-display); text-align:right;
-    letter-spacing:.045em;
-}
-.nac-hero {
-    background:linear-gradient(110deg, #fff 50%, #fff1e9 100%);
-    border:1px solid var(--nac-line); border-left:.3rem solid var(--nac-orange);
-    border-radius:.8rem; padding:clamp(1.7rem, 4vw, 3.2rem); margin:.7rem 0 .9rem;
-}
-.stApp .nac-hero h1, .stApp .nac-heading {
-    color:var(--nac-navy); font-family:var(--nac-display);
-    letter-spacing:-.04em; line-height:1.08; margin:0; padding:0; font-weight:750;
-}
-.stApp .nac-hero h1 { font-size:clamp(2.65rem,7vw,4.8rem); }
-.nac-hero p {
-    max-width:37rem; color:var(--nac-ink);
-    font:clamp(1.05rem,2vw,1.24rem)/1.65 Georgia, serif; margin:.85rem 0 0;
-}
-.stApp .nac-heading { font-size:clamp(1.9rem,6vw,3rem); margin:.35rem 0; }
-.stApp .nac-question-title { font-size:clamp(1.3rem,4.75vw,2rem); text-align:center; }
-.nac-prompt { color:var(--nac-navy); text-align:center; font-size:1.25rem; margin:.15rem 0; }
-.nac-card { text-align:center; padding:.35rem .25rem; }
-.stApp .nac-card h2 {
-    color:var(--nac-navy); font:700 1.28rem/1.25 var(--nac-display);
-    overflow-wrap:anywhere; margin:.35rem 0; padding:0;
-}
-.nac-card p { margin:.35rem 0; line-height:1.45; }
-.nac-level { color:var(--nac-navy); font-weight:700; font-size:.88rem; }
-.nac-activity { text-align:left; min-height:6.75rem; }
-.nac-activity .nac-level { color:#84411c; }
-.nac-activity-status { color:var(--nac-navy); font-size:.89rem; font-weight:650; }
-.st-key-activity_grid [class*="st-key-activity_"]:not(.st-key-activity_grid),
-.st-key-directory_grid [class*="st-key-profile_"], .st-key-sign_in [data-testid="stForm"] {
-    background:#fff;
-}
-.nac-placeholder {
-    display:grid; place-items:center; min-height:12rem; aspect-ratio:4/5;
-    max-width:220px; margin:auto; color:var(--nac-navy); background:var(--nac-mist);
-    border-radius:.75rem; text-align:center;
-}
-.nac-bio { white-space:pre-wrap; overflow-wrap:anywhere; text-align:center; }
-.nac-person {
-    display:grid; grid-template-columns:3.7rem minmax(0,1fr);
-    column-gap:.85rem; align-items:center; color:var(--nac-ink);
-}
-.nac-person img, .nac-person-placeholder {
-    display:block; width:100%; aspect-ratio:4/5; object-fit:cover;
-    border-radius:.45rem; background:var(--nac-mist);
-}
-.stApp .nac-person h2 {
-    color:var(--nac-navy); font:700 1.18rem/1.2 var(--nac-display);
-    margin:0; padding:0; overflow-wrap:anywhere;
-}
-.nac-person p { margin:.25rem 0 0; overflow-wrap:anywhere; }
-.nac-person .nac-level { margin-top:.35rem; }
-.nac-person-copy { min-width:0; }
-.nac-chart-path { color:var(--nac-navy); font-weight:650; font-size:.95rem; }
-.nac-page-count { text-align:center; color:var(--nac-ink); margin:.65rem 0; font-size:.9rem; }
-.nac-review {
-    display:grid; grid-template-columns:minmax(8rem,auto) minmax(0,1fr);
-    gap:.35rem .8rem; border-top:1px solid var(--nac-line); padding-top:.7rem; margin:.1rem 0;
-}
-.nac-review dt { color:var(--nac-navy); font-weight:650; }
-.nac-review dd { margin:0; overflow-wrap:anywhere; }
-.nac-chart-branch {
-    border-left:.2rem solid var(--nac-orange); color:var(--nac-navy);
-    padding:.35rem .8rem; font:700 1.1rem/1.3 var(--nac-display);
-}
-.st-key-org_chart [class*="st-key-org_person_"] { background:#fff; }
-.nac-org-tree, .nac-org-children { display:grid; gap:.55rem; }
-.nac-org-node { border:1px solid var(--nac-line); border-radius:.65rem; background:#fff; }
-.nac-org-summary {
-    display:grid; grid-template-columns:2.4rem minmax(0,1fr) .6rem;
-    align-items:center; gap:.7rem; min-height:3.5rem;
-    padding:.55rem .85rem; cursor:pointer; list-style:none; border-radius:.65rem;
-}
-.nac-org-summary::-webkit-details-marker { display:none; }
-.nac-org-summary:hover { background:var(--nac-mist); }
-.nac-org-summary:focus-visible { outline:2px solid var(--nac-navy); outline-offset:2px; }
-.nac-org-summary img, .nac-org-summary .nac-person-placeholder {
-    display:block; width:2.4rem; height:3rem; object-fit:cover; border-radius:.35rem;
-}
-.nac-org-summary strong, .nac-org-summary small { display:block; overflow-wrap:anywhere; }
-.nac-org-summary strong { color:var(--nac-navy); font:700 1rem/1.25 var(--nac-display); }
-.nac-org-summary small { color:var(--nac-ink); font-size:.88rem; line-height:1.4; margin-top:.2rem; }
-.nac-org-chevron {
-    width:.48rem; height:.48rem; border-right:2px solid var(--nac-navy);
-    border-bottom:2px solid var(--nac-navy); transform:rotate(-45deg);
-}
-.nac-org-node[open] > summary { background:var(--nac-mist); border-bottom-left-radius:0; border-bottom-right-radius:0; }
-.nac-org-node[open] > summary .nac-org-chevron { transform:rotate(45deg); }
-.nac-org-body { padding:.65rem .75rem .75rem; }
-.nac-org-body p { color:var(--nac-ink); margin:0; font-size:.9rem; overflow-wrap:anywhere; }
-.nac-org-body p + p { margin-top:.25rem; }
-.nac-org-count { color:var(--nac-navy); font-weight:700; margin:.75rem 0 .45rem; }
-.nac-org-children { border-left:2px solid var(--nac-peach); padding-left:.55rem; }
-.st-key-sign_in { max-width:28rem; margin:1rem auto 0; }
-.st-key-sign_in .nac-heading { text-align:center; margin-bottom:.75rem; }
-.nac-feedback { color:var(--nac-ink); font-size:.95rem; margin:0; }
-[data-testid="stImage"] { margin-inline:auto; max-width:100%; }
-[data-testid="stImage"] img { border-radius:.75rem; max-width:100%; height:auto; }
-[data-testid="stButton"] button, [data-testid="stFormSubmitButton"] button,
-[data-testid="stDownloadButton"] button { min-height:3rem; border-radius:.65rem; font-weight:650; }
-.st-key-quiz_content button { padding:.65rem .9rem; }
-.st-key-quiz_content button p { overflow-wrap:anywhere; }
-button:focus-visible {
-    outline:2px solid var(--nac-navy) !important; outline-offset:3px;
-    box-shadow:0 0 0 3px var(--nac-peach);
-}
-@media (max-width: 650px) {
-    .block-container { padding:2.5rem 1rem max(2rem, env(safe-area-inset-bottom)); }
-    .nac-brand { min-height:3.5rem; padding:.55rem .8rem; }
-    .nac-brand img { width:7rem; }
-    .nac-brand span { font-size:.75rem; }
-    .nac-hero { padding:1.4rem 1rem; }
-    .stApp .nac-hero h1 { font-size:clamp(2.25rem,9vw,2.9rem); }
-    .nac-hero p { margin-top:.55rem; }
-    .stApp .nac-heading { margin:.15rem 0 .35rem; }
-    .nac-card { padding:.15rem 0; }
-    .stApp .nac-card h2 { font-size:1.12rem; }
-    .st-key-activity_grid [data-testid="stHorizontalBlock"],
-    .st-key-result_actions [data-testid="stHorizontalBlock"],
-    .st-key-directory_filters [data-testid="stHorizontalBlock"] { flex-direction:column; }
-    .st-key-activity_grid [data-testid="stColumn"],
-    .st-key-result_actions [data-testid="stColumn"],
-    .st-key-directory_filters [data-testid="stColumn"] { width:100% !important; flex:auto !important; }
-    .st-key-directory_grid [data-testid="stHorizontalBlock"] {
-        flex-direction:column;
-    }
-    .st-key-directory_grid [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
-        width:100% !important; flex:auto !important;
-    }
-    .nac-person { grid-template-columns:3.4rem minmax(0,1fr); row-gap:.6rem; }
-    .nac-person-copy { display:contents; }
-    .nac-person h2 { grid-column:2; grid-row:1; }
-    .nac-person img, .nac-person-placeholder { grid-column:1; grid-row:1; }
-    .nac-person p { grid-column:1 / -1; margin:0; }
-    .nac-person .nac-level { margin-top:0; }
-    .nac-org-summary { padding:.45rem .6rem; gap:.5rem; }
-    .nac-org-body { padding:.55rem .25rem .55rem .4rem; }
-    .nac-org-children { padding-left:.3rem; }
-    .nac-activity { min-height:0; }
-    .st-key-quiz_content [data-testid="stHorizontalBlock"] { display:flex; }
-    .st-key-quiz_content [data-testid="stColumn"]:is(:first-child,:last-child) { display:none; }
-    .st-key-quiz_content [data-testid="stColumn"]:nth-child(2) { width:100% !important; flex:1 1 100%; }
-    .st-key-quiz_content [data-testid="stImage"] { width:min(42vw,9rem) !important; }
-    .st-key-directory_filters input, .st-key-quiz_content input, .st-key-sign_in input,
-    [data-testid="stSelectbox"] [role="combobox"] { font-size:1rem; }
-    .nac-review { grid-template-columns:1fr; }
-    .nac-review dd + dt { margin-top:.25rem; }
-    .st-key-pagination [data-testid="stHorizontalBlock"] { flex-wrap:nowrap; gap:.4rem; }
-    .st-key-pagination [data-testid="stColumn"] { min-width:0; }
-    .st-key-result_metrics [data-testid="stHorizontalBlock"] { gap:.5rem; }
-    .st-key-result_metrics [data-testid="stColumn"] { min-width:0; }
-    .st-key-result_metrics [data-testid="stMetricValue"] { font-size:1.35rem; }
-    .st-key-result_metrics [data-testid="stMetricLabel"] { min-width:0; }
-}
-</style>
-""", unsafe_allow_html=True)
+stylesheet = (ROOT / "assets/nac.css").read_text(encoding="utf-8")
+st.markdown(f"<style>{stylesheet}</style>", unsafe_allow_html=True)
 
 st.session_state.setdefault("page", "home")
 st.session_state.setdefault("attempts", {})
@@ -244,7 +68,8 @@ def require_app_password():
         heading("NAC Connect")
         with st.form("staff_sign_in", clear_on_submit=True, border=True):
             st.write("Sign in to explore the staff directory and start your onboarding quizzes.")
-            supplied = st.text_input("Access password", type="password", max_chars=256)
+            supplied = st.text_input("Access password", type="password", max_chars=256,
+                                     autocomplete="current-password")
             submitted = st.form_submit_button("Sign in", type="primary", width="stretch")
         if submitted:
             if hmac.compare_digest(supplied.encode(), password.encode()):
@@ -306,31 +131,37 @@ def person_card(record, photo_root):
 
 def home():
     st.markdown('<div class="nac-hero"><h1>NAC Connect</h1>'
-                '<p>Get to know your coworkers at the National Ability Center. '
-                'Explore the directory, then practice matching names and faces to job titles.</p></div>',
+                '<p>Get to know your coworkers. Start with the staff directory, then practice '
+                'matching names and faces to job titles.</p></div>',
                 unsafe_allow_html=True)
+    title, _, description = PAGES["directory"]
+    with st.container(border=True, key="study_card"):
+        st.markdown(f'<div class="nac-card"><h2>{title}</h2><p>{description}</p></div>',
+                    unsafe_allow_html=True)
+        st.button(f"Open {title}", key="directory", width="stretch", on_click=go, args=("directory",))
+
+    st.markdown('<h2 class="nac-section-title">Onboarding quizzes</h2>', unsafe_allow_html=True)
     with st.container(key="activity_grid"):
-        activities = list(PAGES.items())
-        for offset in range(0, len(activities), 2):
-            for (page, (title, level, description)), column in zip(activities[offset:offset + 2], st.columns(2)):
-                with column, st.container(border=True, key=f"activity_{page}"):
-                    attempt = st.session_state.attempts.get(page)
-                    action, progress = f"Open {title}", ""
-                    if attempt:
-                        if attempt.finished:
-                            action, progress = f"Review {title}", "Completed this session"
-                        else:
-                            action = f"Resume {title}"
-                            progress = f"{len(attempt.answers)} of {len(attempt.questions)} answered"
-                    progress_markup = f'<p class="nac-activity-status">{progress}</p>' if progress else ""
-                    st.markdown(f'<div class="nac-card nac-activity"><span class="nac-level">{level}</span>'
-                                f'<h2>{title}</h2><p>{description}</p>{progress_markup}</div>',
-                                unsafe_allow_html=True)
-                    st.button(action, key=page, width="stretch", on_click=go, args=(page,),
-                              type="primary" if page == "role_recall" else "secondary")
+        quizzes = [(page, details) for page, details in PAGES.items() if page != "directory"]
+        for (page, (title, level, description)), column in zip(quizzes, st.columns(3)):
+            with column, st.container(border=True, key=f"activity_{page}"):
+                attempt = st.session_state.attempts.get(page)
+                action, progress = f"Open {title}", ""
+                if attempt:
+                    if attempt.finished:
+                        action, progress = f"Review {title}", "Completed this session"
+                    else:
+                        action = f"Resume {title}"
+                        progress = f"{len(attempt.answers)} of {len(attempt.questions)} answered"
+                progress_markup = f'<p class="nac-activity-status">{progress}</p>' if progress else ""
+                st.markdown(f'<div class="nac-card nac-activity"><span class="nac-level">{level}</span>'
+                            f'<h3>{title}</h3><p>{description}</p>{progress_markup}</div>',
+                            unsafe_allow_html=True)
+                st.button(action, key=page, width="stretch", on_click=go, args=(page,),
+                          type="primary" if page == "role_recall" else "secondary")
     if os.getenv("NAC_LOCAL_ADMIN") == "1":
         st.button("Roster manager", on_click=go, args=("admin",))
-    st.button("Sign out", on_click=st.session_state.clear)
+    st.button("Sign out", type="tertiary", on_click=st.session_state.clear)
 
 
 def page_slice(items, key, size=12):
@@ -410,8 +241,7 @@ def search_staff(active, photo_root):
             for record, column in zip(visible[offset:offset + 3], st.columns(3)):
                 with column, st.container(border=True, key=f"profile_{record.id}"):
                     person_card(record, photo_root)
-                    st.button("View in org chart", key=f"locate_{record.id}", width="stretch",
-                              help=f"Show {record.name} in the org chart",
+                    st.button(f"View {record.name} in org chart", key=f"locate_{record.id}", width="stretch",
                               on_click=open_search_result, args=(record.id,))
     page_controls("staff_page", page, pages)
 
@@ -527,7 +357,8 @@ def directory(staff, photo_root):
     if not active:
         st.info("The staff directory will open when the approved roster is added.")
         return
-    view = st.radio("Directory view", ["Org chart", "Find staff"], horizontal=True, key="directory_view")
+    with st.container(key="directory_view_control"):
+        view = st.radio("Directory view", ["Org chart", "Find staff"], horizontal=True, key="directory_view")
     if view == "Find staff":
         search_staff(active, photo_root)
     else:
@@ -639,20 +470,23 @@ def quiz(mode, staff, photo_root):
 
     attempt = st.session_state.attempts.get(key)
     if attempt is None:
-        st.markdown(f"**{level}** · {description}")
         available = make_questions(mode, staff, photo_root)
-        if not available:
-            message = "This quiz opens when the roster includes eligible staff with valid photos."
-            if not mastery:
-                message += " Multiple-choice quizzes also need four distinct answer choices."
-            st.info(message)
-            return
-        if mastery:
-            st.write("Enter a full name and job title for each portrait. You’ll see the answer key after you submit.")
-        else:
-            st.write("Get feedback after each answer. At the end, you can review and retry missed questions.")
-        st.caption(f"{len(available)} questions · Progress is saved for this browser session.")
-        st.button("Start exam" if mastery else "Start quiz", type="primary", on_click=restart)
+        with st.container(key="quiz_intro"):
+            if not available:
+                message = "This quiz opens when the roster includes eligible staff with valid photos."
+                if not mastery:
+                    message += " Multiple-choice quizzes also need four distinct answer choices."
+                st.info(message)
+                return
+            st.markdown(f"**{level} · {len(available)} questions**")
+            st.markdown(f'<div class="nac-intro"><p>{html.escape(description)}</p></div>',
+                        unsafe_allow_html=True)
+            if mastery:
+                st.write("Enter a full name and job title for each portrait. The answer key opens after submission.")
+            else:
+                st.write("Get feedback after each answer, then review and retry missed questions.")
+            st.caption("Progress is saved for this browser session.")
+            st.button("Start exam" if mastery else "Start quiz", type="primary", width="stretch", on_click=restart)
         return
     if attempt.finished:
         results(mode, attempt, staff, photo_root, restart)
@@ -661,10 +495,8 @@ def quiz(mode, staff, photo_root):
     index = attempt.index
     question = attempt.questions[index]
     total = len(attempt.questions)
-    st.progress(len(attempt.answers) / total, text=f"Question {index + 1} of {total}")
     with st.container(key="quiz_content"):
-        _, center, _ = st.columns([1, 4, 1])
-    with center:
+        st.progress(len(attempt.answers) / total, text=f"Question {index + 1} of {total}")
         display_photo(question.staff, photo_root, width=240)
         if mastery:
             name_key, role_key = f"exam-name-{index}", f"exam-role-{index}"
@@ -689,7 +521,9 @@ def quiz(mode, staff, photo_root):
                       disabled=answered, on_click=attempt.submit, args=(index, option))
         score = sum(score_choice(mode, attempt.questions[i], answer[0])
                     for i, answer in attempt.answers.items())
-        st.caption(f"Running score · {score} / {len(attempt.answers)}")
+        if attempt.answers:
+            st.markdown(f'<p class="nac-quiz-facts" role="status">'
+                        f'Running score · {score} / {len(attempt.answers)}</p>', unsafe_allow_html=True)
         if answered:
             if score_choice(mode, question, attempt.answers[index][0]):
                 st.success("Correct.")
@@ -732,11 +566,11 @@ if errors:
     staff = []
 exam = st.session_state.attempts.get("mastery_exam")
 if page == "mastery_exam" and exam and not exam.finished:
-    st.button("Pause exam", on_click=go, args=("home",),
+    st.button("Pause exam", type="tertiary", on_click=go, args=("home",),
               help="Submitted answers are saved for this browser session.")
 else:
     if page != "home":
-        st.button("Home", on_click=go, args=("home",))
+        st.button("Home", type="tertiary", on_click=go, args=("home",))
 
 if page == "directory":
     directory(staff, photo_root)

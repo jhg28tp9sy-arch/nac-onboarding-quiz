@@ -49,7 +49,7 @@ class AppTests(unittest.TestCase):
         self.assertEqual(self.app.selectbox(key="staff_page").value, 2)
         self.app.text_input(key="staff_query").set_value("odonnell declan").run()
         self.assertTrue(any(item.value == "1 profile" for item in self.app.caption))
-        self.click("View in org chart")
+        self.click("View Declan O’Donnell in org chart")
         self.assertEqual(self.app.selectbox(key="chart_person_picker").value, "049")
         self.click("Back to search results")
         self.assertEqual(self.app.text_input(key="staff_query").value, "odonnell declan")

@@ -42,19 +42,32 @@ class AppTests(unittest.TestCase):
         self.app.text_input[0].set_value("Colton Bradley").run()
         self.assertTrue(any(item.value == "1 profile" for item in self.app.caption))
 
+    def test_search_returns_to_the_same_results_from_the_org_chart(self):
+        self.click("Open Staff Directory")
+        self.app.radio[0].set_value("Find staff").run()
+        self.click("Next")
+        self.assertEqual(self.app.selectbox(key="staff_page").value, 2)
+        self.app.text_input(key="staff_query").set_value("odonnell declan").run()
+        self.assertTrue(any(item.value == "1 profile" for item in self.app.caption))
+        self.click("View in org chart")
+        self.assertEqual(self.app.selectbox(key="chart_person_picker").value, "049")
+        self.click("Back to search results")
+        self.assertEqual(self.app.text_input(key="staff_query").value, "odonnell declan")
+        self.click("Clear filters")
+        self.assertEqual(self.app.selectbox(key="staff_page").value, 1)
+
     def test_org_chart_follows_paylocity_reporting_links(self):
         self.click("Open Staff Directory")
         self.assertTrue(any("Direct reports · 7" in item.value for item in self.app.markdown))
-        self.assertTrue(any("Abe Rogers" in item.value for item in self.app.markdown))
-        self.click("View Mike Schultz’s reports")
-        self.assertTrue(any("Willie Ford / Mike Schultz" in item.value for item in self.app.markdown))
-        self.click("View Andrew Ball’s reports")
-        self.assertTrue(any("Mike Schultz / Andrew Ball" in item.value for item in self.app.markdown))
-        self.click("View Mallory Dehm’s reports")
-        self.assertTrue(any("Andrew Ball / Mallory Dehm" in item.value for item in self.app.markdown))
+        chart = self.app.html[0].value
+        self.assertIn('<details class="nac-org-node"', chart)
+        self.assertIn("Abe Rogers", chart)
+        self.assertIn("Reports to Mike Schultz", chart)
+        self.app.selectbox(key="chart_person_picker").set_value("041").run()
+        self.assertTrue(any("Willie Ford / Mike Schultz / Andrew Ball / Mallory Dehm" in item.value
+                            for item in self.app.markdown))
         self.click("Back to Andrew Ball")
-        self.click("Back to Mike Schultz")
-        self.click("Back to Willie Ford")
+        self.click("Top of chart")
         self.assertTrue(any("Direct reports · 7" in item.value for item in self.app.markdown))
 
     def test_org_chart_lists_profiles_without_inventing_supervisors(self):
@@ -77,8 +90,22 @@ class AppTests(unittest.TestCase):
             self.assertTrue(self.app.error if index == 0 else self.app.success)
             self.click("See results" if index + 1 == len(attempt.questions) else "Next question")
         self.assertEqual(self.app.metric[0].value, "5 / 6")
+        self.assertEqual(self.app.radio[0].value, "Missed or flagged")
+        self.app.radio[0].set_value("All answers").run()
+        self.assertEqual(sum('class="nac-review"' in item.value for item in self.app.markdown), 6)
         self.click("Retry missed questions")
         self.assertEqual(len(self.app.session_state["attempts"]["role_recall"].questions), 1)
+
+    def test_home_resumes_a_quiz_with_its_progress(self):
+        self.click("Open Role Recall")
+        self.click("Start quiz")
+        attempt = self.app.session_state["attempts"]["role_recall"]
+        self.click(attempt.questions[0].staff.role)
+        self.click("Next question")
+        self.click("Home")
+        self.assertTrue(any("1 of 6 answered" in item.value for item in self.app.markdown))
+        self.click("Resume Role Recall")
+        self.assertEqual(self.app.session_state["attempts"]["role_recall"].index, 1)
 
     def test_mastery_withholds_answers_until_submission(self):
         self.click("Open Mastery Exam")

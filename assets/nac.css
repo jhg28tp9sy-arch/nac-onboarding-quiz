@@ -202,7 +202,15 @@
     overflow-wrap: anywhere;
 }
 .stApp .nac-quiz-prompt > * { margin: 0; }
-.st-key-quiz_content .nac-placeholder { min-height: 0; max-width: var(--nac-quiz-portrait); }
+.st-key-quiz_content .nac-placeholder {
+    min-height: 0;
+    max-width: var(--nac-quiz-portrait);
+    padding: .25rem;
+    font-size: .75rem;
+    font-weight: 650;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
 .st-key-quiz_choices[data-testid="stVerticalBlock"] {
     display: grid;
     grid-template-columns: minmax(0, 1fr);

@@ -11,7 +11,8 @@ class RosterTests(unittest.TestCase):
         production = (ROOT / "data/staff.csv").read_text(encoding="utf-8")
         records, errors, warnings = load(production, ROOT / "assets/staff")
         self.assertTrue(records)
-        self.assertFalse(errors or warnings)
+        self.assertFalse(errors)
+        self.assertEqual(len(warnings), sum(not record.photo for record in records))
         self.assertEqual(load(csv_text(FIELDS, []), ROOT / "assets/staff"), ([], [], []))
 
     def test_corrections_and_duplicates(self):

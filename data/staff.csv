@@ -1,58 +1,108 @@
 id,name,role,department,photo,bio,active,role_recall,name_recall,mastery_exam
-001,Colton Bradley,Program Operations and Equipment Senior Manager,Program Operations and Equipment,001.jpg,,true,true,true,true
-002,Avery Soltys-Gilbert,Recreation Program Manager,Recreation,002.jpg,,true,true,true,true
-003,Tracy Meier,Chief Programming & Education Officer,Programs Leadership,003.jpg,,true,true,true,true
-004,Rob Umstead,High Performance Para Alpine Program Manager,High Performance,004.jpg,,true,true,true,true
-005,Sadie Weeks,Volunteer Coordinator,Volunteers,005.jpg,,true,true,true,true
-006,Hayley McDonald,Community Education & Transition Program Manager,"Camps, Community and Education",006.jpg,,true,true,true,true
-007,Brian Castillo,Ski & Snowboard Senior Manager,Ski and Snowboard,007.jpg,,true,true,true,true
-008,Aidan Updegrove,Program Specialist,Recreation,008.jpg,,true,true,true,true
-009,Caitlin Bognaski,VP of Development and Events,Executive Leadership,009.jpg,,true,true,true,true
-010,Chelley Macon,VP of People and Culture,Executive Leadership,010.jpg,,true,true,true,true
-011,Elisa Banyard,Recreation Senior Manager,Recreation,011.jpg,,true,true,true,true
-012,Nischal Maharjan,Salesforce Analyst and Developer,Operations,012.jpg,,true,true,true,true
+001,Colton Bradley,Program Operations and Equipment Senior Manager,Program Administration,001.jpg,,true,true,true,true
+002,Avery Soltys-Gilbert,Recreation Program Manager,Rec Programs,002.jpg,,true,true,true,true
+003,Tracy Meier,Chief Programming and Education Officer,Program Administration,003.jpg,,true,true,true,true
+004,Rob Umstead,High Performance Para Alpine Program Manager,Competition Events,004.jpg,,true,true,true,true
+005,Sadie Weeks,Volunteer Coordinator,Program Administration,005.jpg,,true,true,true,true
+006,Hayley McDonald,Community Education & Transition Program Manager,Camps,006.jpg,,true,true,true,true
+007,Brian Castillo,Ski & Snowboard Senior Manager,Skiing & Snowboarding,007.jpg,,true,true,true,true
+008,Aidan Updegrove,Program Equipment Technician,Program Administration,008.jpg,,true,true,true,true
+009,Caitlin Bognaski,VP of Development and Events,Development,009.jpg,,true,true,true,true
+010,Chelley Macon,VP of People and Culture,Admin,010.jpg,,true,true,true,true
+011,Elisa Banyard,Recreation Senior Manager,Rec Programs,011.jpg,,true,true,true,true
+012,Nischal Maharjan,Salesforce Analyst and Administrator,Admin,012.jpg,,true,true,true,true
 013,Katie Cook,Development and Grants Manager,Development,013.jpg,,true,true,true,true
-014,Travis Stoneman,Lodge Caretaker,Lodge,014.jpg,,true,true,true,true
-015,Andrew Ball,Guest Services Senior Manager,Operations,015.jpg,,true,true,true,true
-016,Carin DeMilo,Director of RW&S & Development Manager,Development,016.jpg,,true,true,true,true
-017,Mary Godwin,Group Reservations Manager,Guest Services,017.jpg,,true,true,true,true
-018,Janice Drake,Equestrian Facility & Development Manager,Buildings and Grounds,018.jpg,,true,true,true,true
-019,Jack Kirkpatrick,Volunteer Program Manager,Volunteers,019.jpg,,true,true,true,true
-020,Abe Rogers,Program Equipment Technician,Program Operations and Equipment,020.jpg,,true,true,true,true
-021,Anna Davis,Ski & Snowboard Senior Manager,Ski and Snowboard,021.jpg,,true,true,true,true
-022,Liz Carazo,Ski & Snowboard Senior Manager,Equestrian,022.jpg,,true,true,true,true
-023,Meghan Campano,Groups and Military Program Manager,Groups and Military,023.jpg,,true,true,true,true
-024,Erica Smith,Marketing Manager,Marketing,024.jpg,,true,true,true,true
-025,Hillary Sapp,Adaptive Alpine Assistant Coach,High Performance,025.jpg,,true,true,true,true
-026,Allie Schneider,Reservations Coordinator,Guest Services,026.jpg,,true,true,true,true
-027,Lanae Mass,Group Reservations Assistant Manager,Guest Services,027.jpg,,true,true,true,true
-028,Diana Sampson,Reservations Coordinator,Guest Services,028.jpg,,true,true,true,true
-029,Mathu Crandall,Program Specialist G&M,Groups and Military,029.jpg,,true,true,true,true
-030,Jane Hudson,Program Specialist,Recreation,030.jpg,,true,true,true,true
-031,Jules Terry,Adaptive Alpine Team Assistant,High Performance,031.jpg,,true,true,true,true
+014,Travis Stoneman,Lodge Caretaker,Lodge Operation,014.jpg,,true,true,true,true
+015,Andrew Ball,Director of Operations,Program Administration,015.jpg,,true,true,true,true
+016,Carin De Milo,Director of RWS & Development Manager,Development,016.jpg,,true,true,true,true
+017,Mary Godwin,Group Reservations Manager,Program Administration,017.jpg,,true,true,true,true
+018,Janice Drake,Equestrian Facility and Development Manager,Gen. Facilities,018.jpg,,true,true,true,true
+019,Jack Kirkpatrick,Volunteer Department Manager,Program Administration,019.jpg,,true,true,true,true
+020,Abe Rogers,Engineering & Innovation Manager,Program Administration,020.jpg,,true,true,true,true
+021,Anna Davis,Ski & Snowboard Senior Manager,Skiing & Snowboarding,021.jpg,,true,true,true,true
+022,Elizabeth Carazo,Equine Manager,Equestrian,022.jpg,,true,true,true,true
+023,Meghan Campano,Groups and Military Program Manager,Groups,023.jpg,,true,true,true,true
+024,Erica Smith,Marketing Manager,Marketing & Outreach,024.jpg,,true,true,true,true
+026,Allie Schneider,Reservations Coordinator,Program Administration,026.jpg,,true,true,true,true
+027,Lanae Mass,Group Reservations Assistant Manager,Program Administration,027.jpg,,true,true,true,true
+028,Diana Sampson,Reservations Coordinator,Program Administration,028.jpg,,true,true,true,true
+029,Mat Crandall,Groups and Military Program Specialist,Groups,029.jpg,,true,true,true,true
+030,Jane Hudson,Program Specialist,Rec Programs,030.jpg,,true,true,true,true
+031,Jules Terry,Alpine Team Assistant Coach,Competition Events,031.jpg,,true,true,true,true
 032,Karen Locke,Rafting Senior Manager,Rafting,032.jpg,,true,true,true,true
-033,Jamie Starr,Marketing Director,Marketing,033.jpg,,true,true,true,true
-034,Ally Rigney,Adventure Program Manager,Groups and Military,034.jpg,,true,true,true,true
-035,Cassidy Craige,Program Specialist,Recreation,035.jpg,,true,true,true,true
-036,Avery Sandstrum,Volunteer Coordinator,Volunteers,036.jpg,,true,true,true,true
-037,Andrea Stack,"Camps, Community, and Education Senior Manager","Camps, Community and Education",037.jpg,,true,true,true,true
-038,Shelby Massow,Program Specialist,Recreation,038.jpg,,true,true,true,true
+033,Jamie Starr,VP of Marketing,Marketing & Outreach,033.jpg,,true,true,true,true
+034,Ally Rigney,Adventure Program Manager,Adventure,034.jpg,,true,true,true,true
+035,Cassidy Craige,Program Specialist,Skiing & Snowboarding,035.jpg,,true,true,true,true
+036,Avery Sandstrum,Volunteer Coordinator,Program Administration,036.jpg,,true,true,true,true
+037,Andrea Stack,"Camps, Community, and Education Senior Manager",Camps,037.jpg,,true,true,true,true
+038,Shelby Massow,Program Specialist,Rec Programs,038.jpg,,true,true,true,true
 039,Madison Lambdin,Development and Events Manager,Development,039.jpg,,true,true,true,true
-040,Kate McMahon,Content Specialist,Marketing,040.jpg,,true,true,true,true
-041,Mallory Dehm,Reservations Manager,Guest Services,041.jpg,,true,true,true,true
-042,Brian Essig,Associate Program Director,Programs Leadership,042.jpg,,true,true,true,true
-043,Willie Ford,Chief Executive Officer,Executive Leadership,043.jpg,,true,true,true,true
+040,Kate McMahon,Content and Social Media Specialist,Marketing & Outreach,040.jpg,,true,true,true,true
+041,Mallory Dehm,Reservations Manager,Program Administration,041.jpg,,true,true,true,true
+042,Brian Essig,Associate Program Director,Program Administration,042.jpg,,true,true,true,true
+043,William Ford,Chief Executive Officer,Admin,043.jpg,,true,true,true,true
 044,Mary Ware,Equestrian Senior Manager,Equestrian,044.jpg,,true,true,true,true
 045,Reilly Fenton,Equine Specialist,Equestrian,045.jpg,,true,true,true,true
-046,Tracee Batt,Finance and HR Senior Manager,Finance,046.jpg,,true,true,true,true
-047,Mike Schultz,Chief Operating Officer,Operations,047.jpg,,true,true,true,true
-048,Dale Hentzell,Program Specialist,Recreation,048.jpg,,true,true,true,true
-049,Declan O’Donnell,Program Specialist G&M,Groups and Military,049.jpg,,true,true,true,true
-050,Shauna Engen,Reservations Coordinator,Guest Services,050.jpg,,true,true,true,true
-051,Rowan Duzy,Program Specialist - CC,"Camps, Community and Education",051.jpg,,true,true,true,true
-052,Chris Louder,Buildings and Grounds Manager,Operations,052.jpg,,true,true,true,true
-053,Kaylyn Stoneman,Lodge Caretaker,Lodge,053.jpg,,true,true,true,true
-054,Michelle Blunck,Chief Financial Officer,Finance,054.jpg,,true,true,true,true
+046,Tracee Batt,Finance & HR SR Manager,Admin,046.jpg,,true,true,true,true
+047,Mike Schultz,Chief Operating Officer,Admin,047.jpg,,true,true,true,true
+048,Dale Hentzell,Program Specialist,Skiing & Snowboarding,048.jpg,,true,true,true,true
+049,Declan ODonnell,Program Specialist G&M,Groups,049.jpg,,true,true,true,true
+050,Shauna Engen,Reservations Coordinator,Program Administration,050.jpg,,true,true,true,true
+051,Rowan Duzy,Program Specialist - CC,Camps,051.jpg,,true,true,true,true
+052,Chris Louder,Buildings and Grounds Manager,Gen. Facilities,052.jpg,,true,true,true,true
+054,Michelle Blunck,Chief Financial Officer,Admin,054.jpg,,true,true,true,true
 055,Grant Dixon,Development Coordinator,Development,055.jpg,,true,true,true,true
 056,Alex Gumbiner,Rafting Operations Manager,Rafting,056.jpg,,true,true,true,true
-057,Savannah Heller,Camp Program Manager,"Camps, Community and Education",057.jpg,,true,true,true,true
+057,Savannah Heller,Camp Program Manager,Camps,057.jpg,,true,true,true,true
+058,Joshua Anderson,Program Specialist,Adventure,,,true,true,true,true
+059,Karli Anderson,Lodge & Hospitality Coordinator,Lodge Operation,,,true,true,true,true
+060,Mike Benson,Lodge Manager,Lodge Operation,,,true,true,true,true
+061,Lindsey Beres,Adaptive Riding Instructor,Equestrian,,,true,true,true,true
+062,Kyle Blumin,Ski and SB Instructor,Skiing & Snowboarding,,,true,true,true,true
+063,Jess Bonacia,Adaptive Riding Instructor,Equestrian,,,true,true,true,true
+064,Cassidy Bright,Recreation Instructor,Rec Programs,,,true,true,true,true
+065,Gus Bueno,Recreation Instructor,Rec Programs,,,true,true,true,true
+066,Cass Bullock,Groups and Military Assistant Program Manager,Groups,,,true,true,true,true
+067,Kristen Caldwell,Ski and SB Instructor & Training Coordinator,Skiing & Snowboarding,,,true,true,true,true
+068,Madi Corcoran,Recreation Instructor,Rec Programs,,,true,true,true,true
+069,Louisa Currie,Community & Transition Program Assistant,Camps,,,true,true,true,true
+070,Audrey Cutler,Recreation Instructor,Rec Programs,,,true,true,true,true
+071,Loree DeYoung,Adaptive Riding Instructor,Equestrian,,,true,true,true,true
+072,Christine Degraeve Chidgey,Ski and SB Instructor,Skiing & Snowboarding,,,true,true,true,true
+073,Calen Dowley,Recreation Instructor,Rec Programs,,,true,true,true,true
+074,Dave Duzy,Ski and SB Instructor,Skiing & Snowboarding,,,true,true,true,true
+075,Shannon Fiegel,Recreation and Adventure Instructor,Rec Programs,,,true,true,true,true
+076,Jennifer Gardner,Ski and SB Instructor,Skiing & Snowboarding,,,true,true,true,true
+077,Regina Grapentine,Equestrian Staff,Equestrian,,,true,true,true,true
+078,Liza Haffenberg,Ski and SB Instructor,Skiing & Snowboarding,,,true,true,true,true
+079,Jason Hart,Recreation Instructor,Rec Programs,,,true,true,true,true
+080,Seth Horowitz,Recreation Instructor,Rec Programs,,,true,true,true,true
+081,Ryan Hutton,Ski and SB Instructor,Skiing & Snowboarding,,,true,true,true,true
+082,Karina Illingworth,Recreation Instructor,Rec Programs,,,true,true,true,true
+083,Sydney Johnson,Ski and SB Instructor,Skiing & Snowboarding,,,true,true,true,true
+084,Sara Justusson,Equestrian Staff,Equestrian,,,true,true,true,true
+085,Devon Keir,Ski and SB Instructor,Skiing & Snowboarding,,,true,true,true,true
+086,Kendal Kuper,Recreation Instructor,Rec Programs,,,true,true,true,true
+087,Justin Landau,Recreation Instructor,Rec Programs,,,true,true,true,true
+088,Matt Lorentz,Ski and SB Instructor,Skiing & Snowboarding,,,true,true,true,true
+089,Mike McBee,Ski and SB Instructor,Skiing & Snowboarding,,,true,true,true,true
+090,Corie Paige Miller,Recreation Instructor,Rec Programs,,,true,true,true,true
+091,April O'Connell,Group Reservations Coordinator,Program Administration,,,true,true,true,true
+092,Cat Osborne,Reservations Coordinator,Program Administration,,,true,true,true,true
+093,Emma Paden,Ski and SB Supervisor,Skiing & Snowboarding,,,true,true,true,true
+094,Kelly Patrino,Recreation Instructor,Rec Programs,,,true,true,true,true
+095,Kameron Paulsen,Ski and SB Instructor,Skiing & Snowboarding,,,true,true,true,true
+096,Matt Pearl,Ski and SB Instructor,Skiing & Snowboarding,,,true,true,true,true
+097,Haze Pike,Adaptive Riding Instructor,Equestrian,,,true,true,true,true
+098,Madison Quirk,Recreation Instructor,Rec Programs,,,true,true,true,true
+099,Riley Riley,Ski and SB Instructor,Skiing & Snowboarding,,,true,true,true,true
+100,Sam Robertson,Recreation Instructor,Rec Programs,,,true,true,true,true
+101,FRANK SIPOS,Buildings and Grounds Maintenance Technician,Gen. Facilities,,,true,true,true,true
+102,Duke Speer,Ski and SB Instructor,Skiing & Snowboarding,,,true,true,true,true
+103,Patricia Stokes,Ski and SB Instructor,Skiing & Snowboarding,,,true,true,true,true
+104,Allen Symonds,Ski and SB Instructor,Skiing & Snowboarding,,,true,true,true,true
+105,Kristen Ude,Group Sales Manager,Admin,,,true,true,true,true
+106,Colton Wempe,Buildings and Grounds Assistant,Gen. Facilities,,,true,true,true,true
+107,JW Willis,Recreation Instructor,Rec Programs,,,true,true,true,true
+108,Mike Wolff,Ski and SB Instructor,Skiing & Snowboarding,,,true,true,true,true
+109,Jackie Wood,Equestrian Staff,Equestrian,,,true,true,true,true

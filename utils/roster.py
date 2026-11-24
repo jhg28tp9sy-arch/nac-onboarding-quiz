@@ -53,7 +53,7 @@ def validate(rows, photo_root):
         record = Staff(**{key: values[key] if key not in FLAGS else
                           values[key].lower() in {"true", "1"} for key in FIELDS})
         if photo_path(record, photo_root) is None:
-            warnings.append(f"Row {number}: photo missing or invalid. Excluded from quizzes.")
+            warnings.append(f"Row {number}: photo missing or invalid.")
         staff.append(record)
     return staff, errors, warnings
 

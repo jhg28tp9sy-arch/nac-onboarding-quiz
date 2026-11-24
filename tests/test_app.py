@@ -5,14 +5,15 @@ from unittest.mock import patch
 
 from streamlit.testing.v1 import AppTest
 
-from utils.quiz import LIMITS
+from utils.quiz import make_questions
 
 APP = Path(__file__).resolve().parents[1] / "app.py"
 
 
 class AppTests(unittest.TestCase):
     def setUp(self):
-        self.enterContext(patch.dict(LIMITS, dict.fromkeys(LIMITS, 6)))
+        self.enterContext(patch("utils.quiz.make_questions", side_effect=lambda *args, **kwargs:
+                                [question for question in make_questions(*args, **kwargs) if question.staff.photo][:6]))
         self.app = AppTest.from_file(str(APP))
         self.app.secrets["NAC_ACCESS_PASSWORD"] = "example-test-password"
         self.app.run()
@@ -38,7 +39,7 @@ class AppTests(unittest.TestCase):
         self.click("Sign in")
         self.click("Open Staff Directory")
         self.app.radio[0].set_value("Find staff").run()
-        self.assertTrue(any(item.value == "57 profiles" for item in self.app.caption))
+        self.assertTrue(any(item.value == "107 profiles" for item in self.app.caption))
 
     def test_default_access_password_changed(self):
         self.click("Sign out")
@@ -64,7 +65,7 @@ class AppTests(unittest.TestCase):
         self.assertEqual(self.app.selectbox(key="staff_page").value, 2)
         self.app.text_input(key="staff_query").set_value("odonnell declan").run()
         self.assertTrue(any(item.value == "1 profile" for item in self.app.caption))
-        self.click("View Declan O’Donnell in org chart")
+        self.click("View Declan ODonnell in org chart")
         self.assertEqual(self.app.selectbox(key="chart_person_picker").value, "049")
         self.click("Back to search results")
         self.assertEqual(self.app.text_input(key="staff_query").value, "odonnell declan")
@@ -79,20 +80,18 @@ class AppTests(unittest.TestCase):
         self.assertIn("Abe Rogers", chart)
         self.assertIn("Reports to Mike Schultz", chart)
         self.app.selectbox(key="chart_person_picker").set_value("041").run()
-        self.assertTrue(any("Willie Ford / Mike Schultz / Andrew Ball / Mallory Dehm" in item.value
+        self.assertTrue(any("William Ford / Mike Schultz / Andrew Ball / Mallory Dehm" in item.value
                             for item in self.app.html))
         self.click("Back to Andrew Ball")
         self.click("Top of chart")
         self.assertTrue(any("Direct reports · 7" in item.value for item in self.app.html))
 
-    def test_org_chart_lists_profiles_without_inventing_supervisors(self):
+    def test_org_chart_includes_supervisors_added_from_paylocity(self):
         self.click("Open Staff Directory")
         self.app.selectbox[0].set_value("014").run()
-        self.assertTrue(any(item.value == "Supervisor is outside this directory."
-                            for item in self.app.caption))
-        self.app.selectbox[0].set_value("025").run()
-        self.assertTrue(any(item.value == "No supervisor link is available for this profile."
-                            for item in self.app.caption))
+        self.assertTrue(any(item.value == "Reports to Mike Benson" for item in self.app.caption))
+        self.click("Back to Mike Benson")
+        self.assertEqual(len(self.app.selectbox[0].options), 107)
 
     def test_role_recall_feedback_and_retry(self):
         self.click("Open Role Recall")
@@ -214,7 +213,8 @@ class AppTests(unittest.TestCase):
         self.assertFalse(any(item.value == "Completion certificate" for item in self.app.subheader))
 
     def test_perfect_mastery_earns_a_certificate(self):
-        with patch.dict(LIMITS, mastery_exam=1):
+        with patch("utils.quiz.make_questions", side_effect=lambda *args, **kwargs:
+                   [question for question in make_questions(*args, **kwargs) if question.staff.photo][:1]):
             self.click("Open Mastery Exam")
             self.click("Start exam")
             question = self.app.session_state["attempts"]["mastery_exam"].questions[0]
@@ -225,6 +225,19 @@ class AppTests(unittest.TestCase):
         self.assertTrue(any(item.value == "Completion certificate" for item in self.app.subheader))
         self.assertTrue(any(button.proto.label == "Download certificate (PDF)"
                             for button in self.app.get("download_button")))
+
+    def test_mastery_missing_photo_appears_only_in_the_answer_key(self):
+        with patch("utils.quiz.make_questions", side_effect=lambda *args, **kwargs:
+                   [question for question in make_questions(*args, **kwargs) if not question.staff.photo][:1]):
+            self.click("Open Mastery Exam")
+            self.click("Start exam")
+            person = self.app.session_state["attempts"]["mastery_exam"].questions[0].staff
+            self.assertFalse(self.app.text_input)
+            self.assertFalse(any(person.name in item.value for item in self.app.html))
+            self.click("See results")
+        self.assertTrue(any(person.name in item.value for item in self.app.html))
+        self.assertTrue(any("Name · Review only" in item.value for item in self.app.html))
+        self.assertFalse(any(item.value == "Completion certificate" for item in self.app.subheader))
 
     def test_name_recall(self):
         self.click("Open Name Recall")

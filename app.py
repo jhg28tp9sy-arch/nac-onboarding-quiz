@@ -103,12 +103,14 @@ def roster_photo(record, root, *, thumbnail_width=0):
         return None
 
 
-def display_photo(record, root, *, width=220):
-    image = roster_photo(record, root)
+def display_quiz_photo(record, root):
+    image = roster_photo(record, root, thumbnail_width=360)
     if image is None:
         st.markdown('<div class="nac-placeholder">Photo unavailable</div>', unsafe_allow_html=True)
     else:
-        st.image(image, width=width)
+        encoded = base64.b64encode(image).decode()
+        st.html(f'<img class="nac-quiz-portrait" alt="Staff portrait" width="360" height="450" '
+                f'src="data:image/jpeg;base64,{encoded}">')
 
 
 def thumbnail_markup(record, photo_root, width=160):
@@ -505,29 +507,28 @@ def quiz(mode, staff, photo_root):
         score_markup = f'<span role="status">Score {score}/{len(attempt.answers)}</span>'
     with st.container(border=True, key="quiz_content"):
         with st.container(key="quiz_header"):
-            label, navigation = st.columns([3, 1], vertical_alignment="center")
-            label.markdown(f'<h1 class="nac-heading">{html.escape(title)}</h1>'
-                           f'<p class="nac-quiz-facts"><span>Question {index + 1} of {total}</span>'
-                           f'{score_markup}</p>', unsafe_allow_html=True)
-            navigation.button("Pause exam" if mastery else "Home", type="tertiary", on_click=go, args=("home",))
+            label, navigation = st.columns([3, 1])
+            label.html(f'<h1 class="nac-heading">{html.escape(title)}</h1>'
+                       f'<p class="nac-quiz-facts"><span>Question {index + 1} of {total}</span>{score_markup}</p>')
+            navigation.button("Pause exam" if mastery else "Home", on_click=go, args=("home",))
         st.progress(len(attempt.answers) / total)
 
         with st.container(key="quiz_layout"):
-            portrait_column, response = st.columns([1, 2], vertical_alignment="center")
+            portrait_column, response = st.columns([1, 2])
             with portrait_column:
                 if mastery:
-                    display_photo(question.staff, photo_root, width=216)
+                    display_quiz_photo(question.staff, photo_root)
                 else:
                     with st.container(key="quiz_identity"):
-                        photo, prompt_column = st.columns([1, 2], vertical_alignment="center")
+                        photo, prompt_column = st.columns([1, 2])
                         with photo:
-                            display_photo(question.staff, photo_root, width=180)
-                        with prompt_column:
-                            if mode == "role_recall":
-                                st.markdown(f'<h2 class="nac-heading nac-question-title">'
-                                            f'{html.escape(question.staff.name)}</h2>', unsafe_allow_html=True)
-                            prompt = "What is their job title?" if mode == "role_recall" else "Who is this?"
-                            st.markdown(f'<p class="nac-prompt">{prompt}</p>', unsafe_allow_html=True)
+                            display_quiz_photo(question.staff, photo_root)
+                        name = ""
+                        if mode == "role_recall":
+                            name = (f'<h2 class="nac-heading nac-question-title">'
+                                    f'{html.escape(question.staff.name)}</h2>')
+                        prompt = "What is their job title?" if mode == "role_recall" else "Who is this?"
+                        prompt_column.html(f'<div class="nac-quiz-prompt">{name}<p class="nac-prompt">{prompt}</p></div>')
             with response:
                 if mastery:
                     name_key, role_key = f"exam-name-{index}", f"exam-role-{index}"
@@ -558,7 +559,7 @@ def quiz_feedback(mode, question, answer):
             st.caption(f"You chose {answer}.")
         context = (question.staff.department if mode == "role_recall"
                    else f"{question.staff.role} · {question.staff.department}")
-        st.markdown(f'<p class="nac-feedback">{html.escape(context)}</p>', unsafe_allow_html=True)
+        st.html(f'<p class="nac-feedback">{html.escape(context)}</p>')
 
 
 @st.cache_data(show_spinner=False, max_entries=8)
@@ -573,7 +574,7 @@ current_attempt = st.session_state.attempts.get(page)
 if current_attempt is None or current_attempt.finished:
     brand()
     if page != "home":
-        st.button("Home", type="tertiary", on_click=go, args=("home",))
+        st.button("Home", on_click=go, args=("home",))
 
 if page == "admin" and os.getenv("NAC_LOCAL_ADMIN") == "1":
     from utils.admin import roster_manager

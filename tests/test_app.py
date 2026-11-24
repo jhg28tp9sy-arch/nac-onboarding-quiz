@@ -112,7 +112,7 @@ class AppTests(unittest.TestCase):
         self.click("Start exam")
         questions = self.app.session_state["attempts"]["mastery_exam"].questions
         for index, question in enumerate(questions):
-            shown = " ".join(str(item.value) for item in self.app.markdown)
+            shown = " ".join(str(item.value) for item in (*self.app.markdown, *self.app.html))
             self.assertNotIn(question.staff.name, shown)
             self.assertNotIn(question.staff.role, shown)
             self.app.text_input[0].set_value(question.staff.name)
@@ -127,7 +127,7 @@ class AppTests(unittest.TestCase):
         for index, question in enumerate(attempt.questions):
             self.click(question.staff.name)
             self.assertTrue(any(question.staff.role in html.unescape(item.value)
-                                for item in self.app.markdown))
+                                for item in self.app.html))
             self.click("See results" if index + 1 == len(attempt.questions) else "Next question")
         self.assertEqual(self.app.metric[0].value, "6 / 6")
 

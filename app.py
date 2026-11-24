@@ -64,6 +64,7 @@ def require_app_password():
     if signed_in is not None and hmac.compare_digest(signed_in, marker):
         return
 
+    brand()
     with st.container(key="sign_in"):
         heading("NAC Connect")
         with st.form("staff_sign_in", clear_on_submit=True, border=True):
@@ -460,7 +461,6 @@ def results(mode, attempt, staff, photo_root, restart):
 
 def quiz(mode, staff, photo_root):
     title, level, description = PAGES[mode]
-    heading(title)
     key = mode
     mastery = mode == "mastery_exam"
 
@@ -470,6 +470,7 @@ def quiz(mode, staff, photo_root):
 
     attempt = st.session_state.attempts.get(key)
     if attempt is None:
+        heading(title)
         available = make_questions(mode, staff, photo_root)
         with st.container(key="quiz_intro"):
             if not available:
@@ -489,62 +490,75 @@ def quiz(mode, staff, photo_root):
             st.button("Start exam" if mastery else "Start quiz", type="primary", width="stretch", on_click=restart)
         return
     if attempt.finished:
+        heading(title)
         results(mode, attempt, staff, photo_root, restart)
         return
 
     index = attempt.index
     question = attempt.questions[index]
     total = len(attempt.questions)
-    with st.container(border=True, key="quiz_content"):
-        st.progress(len(attempt.answers) / total, text=f"Question {index + 1} of {total}")
-        if mastery:
-            display_photo(question.staff, photo_root, width=216)
-            name_key, role_key = f"exam-name-{index}", f"exam-role-{index}"
-            with st.form(f"exam-{index}", clear_on_submit=True):
-                st.text_input("Name", max_chars=150, autocomplete="off", key=name_key)
-                st.text_input("Job title", max_chars=200, autocomplete="off", key=role_key)
-                st.form_submit_button(
-                    "Submit exam" if index + 1 == total else "Save and continue",
-                    type="primary", width="stretch", on_click=submit_exam_answer,
-                    args=(attempt, index, name_key, role_key),
-                )
-            return
-
-        with st.container(key="quiz_identity"):
-            photo, label = st.columns([1, 2], vertical_alignment="center")
-            with photo:
-                display_photo(question.staff, photo_root, width=180)
-            with label:
-                if mode == "role_recall":
-                    st.markdown(f'<h2 class="nac-heading nac-question-title">{html.escape(question.staff.name)}</h2>',
-                                unsafe_allow_html=True)
-                prompt = "What is their job title?" if mode == "role_recall" else "Who is this?"
-                st.markdown(f'<p class="nac-prompt">{prompt}</p>', unsafe_allow_html=True)
-        answered = index in attempt.answers
-        if not answered:
-            with st.container(key="quiz_choices"):
-                for option_index, option in enumerate(question.options):
-                    st.button(option, key=f"option-{mode}-{index}-{option_index}", width="stretch",
-                              on_click=attempt.submit, args=(index, option))
-        else:
-            with st.container(key="quiz_feedback"):
-                if score_choice(mode, question, attempt.answers[index][0]):
-                    st.success("Correct.")
-                else:
-                    expected = getattr(question.staff, FIELDS[mode])
-                    st.error(f"The correct answer is {expected}.")
-                    st.caption(f"You chose {attempt.answers[index][0]}.")
-                context = (question.staff.department if mode == "role_recall"
-                           else f"{question.staff.role} · {question.staff.department}")
-                st.markdown(f'<p class="nac-feedback">{html.escape(context)}</p>', unsafe_allow_html=True)
+    answered = index in attempt.answers
+    score_markup = ""
+    if not mastery and attempt.answers:
         score = sum(score_choice(mode, attempt.questions[i], answer[0])
                     for i, answer in attempt.answers.items())
-        if attempt.answers:
-            st.markdown(f'<p class="nac-quiz-facts" role="status">'
-                        f'Running score · {score} / {len(attempt.answers)}</p>', unsafe_allow_html=True)
-        if answered:
-            st.button("See results" if index + 1 == total else "Next question", type="primary",
-                      width="stretch", on_click=attempt.advance, args=(index,))
+        score_markup = f'<span role="status">Score {score}/{len(attempt.answers)}</span>'
+    with st.container(border=True, key="quiz_content"):
+        with st.container(key="quiz_header"):
+            label, navigation = st.columns([3, 1], vertical_alignment="center")
+            label.markdown(f'<h1 class="nac-heading">{html.escape(title)}</h1>'
+                           f'<p class="nac-quiz-facts"><span>Question {index + 1} of {total}</span>'
+                           f'{score_markup}</p>', unsafe_allow_html=True)
+            navigation.button("Pause exam" if mastery else "Home", type="tertiary", on_click=go, args=("home",))
+        st.progress(len(attempt.answers) / total)
+
+        with st.container(key="quiz_layout"):
+            portrait_column, response = st.columns([1, 2], vertical_alignment="center")
+            with portrait_column:
+                if mastery:
+                    display_photo(question.staff, photo_root, width=216)
+                else:
+                    with st.container(key="quiz_identity"):
+                        photo, prompt_column = st.columns([1, 2], vertical_alignment="center")
+                        with photo:
+                            display_photo(question.staff, photo_root, width=180)
+                        with prompt_column:
+                            if mode == "role_recall":
+                                st.markdown(f'<h2 class="nac-heading nac-question-title">'
+                                            f'{html.escape(question.staff.name)}</h2>', unsafe_allow_html=True)
+                            prompt = "What is their job title?" if mode == "role_recall" else "Who is this?"
+                            st.markdown(f'<p class="nac-prompt">{prompt}</p>', unsafe_allow_html=True)
+            with response:
+                if mastery:
+                    name_key, role_key = f"exam-name-{index}", f"exam-role-{index}"
+                    with st.form(f"exam-{index}", clear_on_submit=True, border=False):
+                        st.text_input("Name", max_chars=150, autocomplete="off", key=name_key)
+                        st.text_input("Job title", max_chars=200, autocomplete="off", key=role_key)
+                        st.form_submit_button("Submit exam" if index + 1 == total else "Save and continue",
+                                              type="primary", width="stretch", on_click=submit_exam_answer,
+                                              args=(attempt, index, name_key, role_key))
+                elif not answered:
+                    with st.container(key="quiz_choices"):
+                        for option_index, option in enumerate(question.options):
+                            st.button(option, key=f"option-{mode}-{index}-{option_index}", width="stretch",
+                                      on_click=attempt.submit, args=(index, option))
+                else:
+                    quiz_feedback(mode, question, attempt.answers[index][0])
+                    st.button("See results" if index + 1 == total else "Next question", type="primary",
+                              width="stretch", on_click=attempt.advance, args=(index,))
+
+
+def quiz_feedback(mode, question, answer):
+    with st.container(key="quiz_feedback"):
+        if score_choice(mode, question, answer):
+            st.success("Correct.")
+        else:
+            expected = getattr(question.staff, FIELDS[mode])
+            st.error(f"The correct answer is {expected}.")
+            st.caption(f"You chose {answer}.")
+        context = (question.staff.department if mode == "role_recall"
+                   else f"{question.staff.role} · {question.staff.department}")
+        st.markdown(f'<p class="nac-feedback">{html.escape(context)}</p>', unsafe_allow_html=True)
 
 
 @st.cache_data(show_spinner=False, max_entries=8)
@@ -552,14 +566,18 @@ def read_roster(path, photo_root, roster_mtime, photos_mtime):
     return load(path.read_text(encoding="utf-8-sig"), photo_root)
 
 
-brand()
 require_app_password()
 
 page = st.session_state.page
+current_attempt = st.session_state.attempts.get(page)
+if current_attempt is None or current_attempt.finished:
+    brand()
+    if page != "home":
+        st.button("Home", type="tertiary", on_click=go, args=("home",))
+
 if page == "admin" and os.getenv("NAC_LOCAL_ADMIN") == "1":
     from utils.admin import roster_manager
 
-    st.button("Home", on_click=go, args=("home",))
     roster_manager(ROOT)
     st.stop()
 
@@ -573,14 +591,6 @@ except (OSError, UnicodeError):
 if errors:
     st.warning("The roster needs attention. Contact the roster administrator.")
     staff = []
-exam = st.session_state.attempts.get("mastery_exam")
-if page == "mastery_exam" and exam and not exam.finished:
-    st.button("Pause exam", type="tertiary", on_click=go, args=("home",),
-              help="Submitted answers are saved for this browser session.")
-else:
-    if page != "home":
-        st.button("Home", type="tertiary", on_click=go, args=("home",))
-
 if page == "directory":
     directory(staff, photo_root)
 elif page in PAGES:

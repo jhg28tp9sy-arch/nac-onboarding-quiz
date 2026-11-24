@@ -58,17 +58,17 @@ class AppTests(unittest.TestCase):
 
     def test_org_chart_follows_paylocity_reporting_links(self):
         self.click("Open Staff Directory")
-        self.assertTrue(any("Direct reports · 7" in item.value for item in self.app.markdown))
-        chart = self.app.html[0].value
+        self.assertTrue(any("Direct reports · 7" in item.value for item in self.app.html))
+        chart = next(item.value for item in self.app.html if '<div class="nac-org-tree">' in item.value)
         self.assertIn('<details class="nac-org-node"', chart)
         self.assertIn("Abe Rogers", chart)
         self.assertIn("Reports to Mike Schultz", chart)
         self.app.selectbox(key="chart_person_picker").set_value("041").run()
         self.assertTrue(any("Willie Ford / Mike Schultz / Andrew Ball / Mallory Dehm" in item.value
-                            for item in self.app.markdown))
+                            for item in self.app.html))
         self.click("Back to Andrew Ball")
         self.click("Top of chart")
-        self.assertTrue(any("Direct reports · 7" in item.value for item in self.app.markdown))
+        self.assertTrue(any("Direct reports · 7" in item.value for item in self.app.html))
 
     def test_org_chart_lists_profiles_without_inventing_supervisors(self):
         self.click("Open Staff Directory")
@@ -92,18 +92,21 @@ class AppTests(unittest.TestCase):
         self.assertEqual(self.app.metric[0].value, "5 / 6")
         self.assertEqual(self.app.radio[0].value, "Missed or flagged")
         self.app.radio[0].set_value("All answers").run()
-        self.assertEqual(sum('class="nac-review"' in item.value for item in self.app.markdown), 6)
+        self.assertEqual(sum('class="nac-review"' in item.value for item in self.app.html), 6)
         self.click("Retry missed questions")
         self.assertEqual(len(self.app.session_state["attempts"]["role_recall"].questions), 1)
 
     def test_home_resumes_a_quiz_with_its_progress(self):
         self.click("Open Role Recall")
         self.click("Start quiz")
+        self.click("Home")
+        self.assertFalse(any("0 of 6 answered" in item.value for item in self.app.html))
+        self.click("Resume Role Recall")
         attempt = self.app.session_state["attempts"]["role_recall"]
         self.click(attempt.questions[0].staff.role)
         self.click("Next question")
         self.click("Home")
-        self.assertTrue(any("1 of 6 answered" in item.value for item in self.app.markdown))
+        self.assertTrue(any("1 of 6 answered" in item.value for item in self.app.html))
         self.click("Resume Role Recall")
         self.assertEqual(self.app.session_state["attempts"]["role_recall"].index, 1)
 

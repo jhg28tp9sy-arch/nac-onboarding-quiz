@@ -24,7 +24,7 @@ STAFF_FILTERS = ("staff_query", "staff_department", "staff_sort", "staff_page")
 
 st.set_page_config(page_title="NAC Connect", page_icon=str(ROOT / "assets/logo.png"), layout="wide")
 stylesheet = (ROOT / "assets/nac.css").read_text(encoding="utf-8")
-st.markdown(f"<style>{stylesheet}</style>", unsafe_allow_html=True)
+st.html(f"<style>{stylesheet}</style>")
 
 st.session_state.setdefault("page", "home")
 st.session_state.setdefault("attempts", {})
@@ -35,7 +35,15 @@ def go(page):
 
 
 def heading(title):
-    st.markdown(f'<h1 class="nac-heading">{html.escape(title)}</h1>', unsafe_allow_html=True)
+    st.html(f'<h1 class="nac-heading">{html.escape(title)}</h1>')
+
+
+def page_heading(title):
+    with st.container(key="page_heading"):
+        label, navigation = st.columns([3, 1])
+        with label:
+            heading(title)
+        navigation.button("Home", on_click=go, args=("home",))
 
 
 @st.cache_data(show_spinner=False)
@@ -45,9 +53,8 @@ def brand_image():
 
 def brand():
     wordmark = brand_image()
-    st.markdown('<div class="nac-brand"><img alt="National Ability Center" '
-                f'src="data:image/png;base64,{wordmark}"><span>Employee onboarding</span></div>',
-                unsafe_allow_html=True)
+    st.html('<div class="nac-brand"><img alt="National Ability Center" '
+            f'src="data:image/png;base64,{wordmark}"><span>Employee onboarding</span></div>')
 
 
 def require_app_password():
@@ -123,26 +130,23 @@ def thumbnail_markup(record, photo_root, width=160):
 
 def person_card(record, photo_root):
     name, role, department = map(html.escape, (record.name, record.role, record.department))
-    st.markdown(
+    bio = f'<p class="nac-bio">{html.escape(record.bio)}</p>' if record.bio else ""
+    st.html(
         f'<div class="nac-person">{thumbnail_markup(record, photo_root)}<div class="nac-person-copy">'
-        f'<h2>{name}</h2><p>{role}</p><p class="nac-level">{department}</p></div></div>',
-        unsafe_allow_html=True,
+        f'<h2>{name}</h2><p>{role}</p><p class="nac-level">{department}</p></div></div>{bio}'
     )
-    if record.bio:
-        st.markdown(f'<p class="nac-bio">{html.escape(record.bio)}</p>', unsafe_allow_html=True)
 
 
 def home():
     with st.container(key="home_intro"):
-        st.markdown('<div class="nac-hero"><h1>NAC Connect</h1>'
-                    '<p>Get to know the people behind NAC. Learn names, job titles, and how teams fit together.</p></div>',
-                    unsafe_allow_html=True)
+        st.html('<div class="nac-hero"><h1>NAC Connect</h1>'
+                '<p>Get to know the people behind NAC. Learn names, job titles, and how teams fit together.</p></div>')
         with st.container(key="study_card"):
             st.button("Open Staff Directory", key="directory", width="stretch",
                       type="primary", on_click=go, args=("directory",))
 
-    st.markdown('<h2 class="nac-section-title">Onboarding quizzes</h2>', unsafe_allow_html=True)
     with st.container(key="activity_grid"):
+        st.html('<h2 class="nac-section-title">Onboarding quizzes</h2>')
         quizzes = [(page, details) for page, details in PAGES.items() if page != "directory"]
         for (page, (title, level, description)), column in zip(quizzes, st.columns(3)):
             with column, st.container(border=True, key=f"activity_{page}"):
@@ -153,11 +157,11 @@ def home():
                         action, progress = f"Review {title}", "Completed this session"
                     else:
                         action = f"Resume {title}"
-                        progress = f"{len(attempt.answers)} of {len(attempt.questions)} answered"
+                        if attempt.answers:
+                            progress = f"{len(attempt.answers)} of {len(attempt.questions)} answered"
                 progress_markup = f'<p class="nac-activity-status">{progress}</p>' if progress else ""
-                st.markdown(f'<div class="nac-card nac-activity"><span class="nac-level">{level}</span>'
-                            f'<h3>{title}</h3><p>{description}</p>{progress_markup}</div>',
-                            unsafe_allow_html=True)
+                st.html(f'<div class="nac-activity"><span class="nac-level">{level}</span>'
+                        f'<h3>{title}</h3><p>{description}</p>{progress_markup}</div>')
                 st.button(action, key=page, width="stretch", on_click=go, args=(page,),
                           type="primary" if page == "role_recall" else "secondary")
     if os.getenv("NAC_LOCAL_ADMIN") == "1":
@@ -188,7 +192,7 @@ def page_controls(key, active, pages):
         previous, count, following = st.columns(3, vertical_alignment="center")
         previous.button("Previous", key=f"{key}-prev", width="stretch", disabled=active == 1,
                         on_click=set_page, args=(key, active - 1))
-        count.markdown(f'<p class="nac-page-count">{active} of {pages}</p>', unsafe_allow_html=True)
+        count.html(f'<p class="nac-page-count" aria-live="polite">{active} of {pages}</p>')
         following.button("Next", key=f"{key}-next", width="stretch", disabled=active == pages,
                          on_click=set_page, args=(key, active + 1))
 
@@ -239,7 +243,8 @@ def search_staff(active, photo_root):
     visible, page, pages = page_slice(matches, "staff_page")
     with st.container(key="directory_grid"):
         for offset in range(0, len(visible), 3):
-            for record, column in zip(visible[offset:offset + 3], st.columns(3)):
+            row = visible[offset:offset + 3]
+            for record, column in zip(row, st.columns(len(row))):
                 with column, st.container(border=True, key=f"profile_{record.id}"):
                     person_card(record, photo_root)
                     st.button(f"View {record.name} in org chart", key=f"locate_{record.id}", width="stretch",
@@ -322,8 +327,7 @@ def org_chart(active, photo_root):
         seen.add(node.id)
         node = staff.get(managers.get(node.id))
     if len(path) > 1:
-        st.markdown(f'<p class="nac-chart-path">{html.escape(" / ".join(reversed(path)))}</p>',
-                    unsafe_allow_html=True)
+        st.html(f'<p class="nac-chart-path">{html.escape(" / ".join(reversed(path)))}</p>')
 
     children = {}
     for employee in ordered:
@@ -342,8 +346,7 @@ def org_chart(active, photo_root):
             elif person.id != root:
                 st.caption("No supervisor link is available for this profile.")
         if direct:
-            st.markdown(f'<p class="nac-chart-branch">Direct reports · {len(direct)}</p>',
-                        unsafe_allow_html=True)
+            st.html(f'<p class="nac-chart-branch">Direct reports · {len(direct)}</p>')
             st.caption("Select a name to expand their department, supervisor, and direct reports.")
             branches = "".join(report_branch(record, person, children, photo_root, {person.id})
                                for record in direct)
@@ -353,7 +356,7 @@ def org_chart(active, photo_root):
 
 
 def directory(staff, photo_root):
-    heading("Staff Directory")
+    page_heading("Staff Directory")
     active = [record for record in staff if record.active]
     if not active:
         st.info("The staff directory will open when the approved roster is added.")
@@ -443,7 +446,7 @@ def results(mode, attempt, staff, photo_root, restart):
     visible, page, pages = page_slice(review, page_key, size=8)
     with st.container(key="review_cards"):
         for question, row in visible:
-            with st.container(border=True):
+            with st.container(border=True, key=f"review_{question.staff.id}"):
                 person_card(question.staff, photo_root)
                 if mastery:
                     details = [
@@ -457,7 +460,7 @@ def results(mode, attempt, staff, photo_root, restart):
                     ]
                 review_markup = "".join(f"<dt>{html.escape(label)}</dt><dd>{html.escape(value)}</dd>"
                                         for label, value in details)
-                st.markdown(f'<dl class="nac-review">{review_markup}</dl>', unsafe_allow_html=True)
+                st.html(f'<dl class="nac-review">{review_markup}</dl>')
     page_controls(page_key, page, pages)
 
 
@@ -471,8 +474,9 @@ def quiz(mode, staff, photo_root):
         st.session_state.attempts[key] = Attempt(questions) if questions else None
 
     attempt = st.session_state.attempts.get(key)
+    if attempt is None or attempt.finished:
+        page_heading(title)
     if attempt is None:
-        heading(title)
         available = make_questions(mode, staff, photo_root)
         with st.container(key="quiz_intro"):
             if not available:
@@ -482,8 +486,7 @@ def quiz(mode, staff, photo_root):
                 st.info(message)
                 return
             st.markdown(f"**{level} · {len(available)} questions**")
-            st.markdown(f'<div class="nac-intro"><p>{html.escape(description)}</p></div>',
-                        unsafe_allow_html=True)
+            st.html(f'<p class="nac-intro">{html.escape(description)}</p>')
             if mastery:
                 st.write("Enter a full name and job title for each portrait. The answer key opens after submission.")
             else:
@@ -492,7 +495,6 @@ def quiz(mode, staff, photo_root):
             st.button("Start exam" if mastery else "Start quiz", type="primary", width="stretch", on_click=restart)
         return
     if attempt.finished:
-        heading(title)
         results(mode, attempt, staff, photo_root, restart)
         return
 
@@ -573,12 +575,11 @@ page = st.session_state.page
 current_attempt = st.session_state.attempts.get(page)
 if current_attempt is None or current_attempt.finished:
     brand()
-    if page != "home":
-        st.button("Home", on_click=go, args=("home",))
 
 if page == "admin" and os.getenv("NAC_LOCAL_ADMIN") == "1":
     from utils.admin import roster_manager
 
+    st.button("Home", on_click=go, args=("home",))
     roster_manager(ROOT)
     st.stop()
 

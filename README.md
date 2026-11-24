@@ -1,6 +1,6 @@
 # NAC Connect
 
-A mobile-ready National Ability Center onboarding app with the staff directory, Role Recall, Name Recall, and Mastery Exam. Quiz results stay in the browser session and can be downloaded as CSV.
+NAC Connect helps new National Ability Center employees learn coworkers’ names, job titles, and departments through an interactive org chart, a searchable staff directory, and three quizzes. Quiz results stay in the browser session and can be downloaded as CSV.
 
 ## Deploy to Streamlit Community Cloud
 
@@ -9,7 +9,7 @@ Deploy from the GitHub repository `jhg28tp9sy-arch/nac-onboarding-quiz`, branch 
 The default test password is `wyser`. To override it, set the following value under **Settings → Secrets**.
 
 ```toml
-NAC_DEMO_PASSWORD = "replace-with-your-access-password"
+NAC_ACCESS_PASSWORD = "replace-with-your-access-password"
 ```
 
 ## Run locally
@@ -22,7 +22,9 @@ streamlit run app.py
 python -m unittest discover -s tests -v
 ```
 
-The app uses the staff roster by default. **Try the fictional demo** switches to six illustrated sample profiles. The local roster manager is disabled by default.
+The local roster manager is disabled by default.
+
+The org chart uses `data/teams.json`, which groups staff by the source chart and stores confirmed direct-report lists separately. The directory’s **Find staff** view searches the full roster.
 
 ## Branding
 

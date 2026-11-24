@@ -25,7 +25,7 @@ class Staff:
     mastery_exam: bool
 
 
-def validate(rows, photo_root, *, demo=False):
+def validate(rows, photo_root):
     staff, errors, warnings = [], [], []
     ids, profiles = set(), set()
     for number, row in enumerate(rows, 2):
@@ -38,7 +38,6 @@ def validate(rows, photo_root, *, demo=False):
             values["role"] = "Adventure Program Manager"
         staff_id = values["id"]
         if (not re.fullmatch(r"[a-zA-Z0-9_-]+", staff_id)
-                or staff_id.casefold().startswith("demo-") != demo
                 or not all(values[key] for key in ("name", "role", "department"))):
             errors.append(f"Row {number}: requires a valid ID, name, role and department.")
             continue
@@ -59,7 +58,7 @@ def validate(rows, photo_root, *, demo=False):
     return staff, errors, warnings
 
 
-def load(text, photo_root, *, demo=False):
+def load(text, photo_root):
     try:
         reader = csv.DictReader(io.StringIO(text), strict=True)
         if reader.fieldnames is None or set(reader.fieldnames) != set(FIELDS) or (
@@ -69,7 +68,7 @@ def load(text, photo_root, *, demo=False):
         rows = list(reader)
         if any(None in row or None in row.values() for row in rows):
             return [], ["Every CSV row must have the same number of fields as the header."], []
-        return validate(rows, photo_root, demo=demo)
+        return validate(rows, photo_root)
     except csv.Error as error:
         return [], [f"Invalid CSV: {error}"], []
 

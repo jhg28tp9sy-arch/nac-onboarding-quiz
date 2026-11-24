@@ -7,17 +7,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class RosterTests(unittest.TestCase):
-    def test_rosters_are_separate(self):
+    def test_staff_roster_is_valid(self):
         production = (ROOT / "data/staff.csv").read_text(encoding="utf-8")
-        records, errors, _ = load(production, ROOT / "assets/staff")
-        self.assertFalse(errors)
-        self.assertTrue(all(not record.id.startswith("demo-") for record in records))
-        self.assertEqual(load(csv_text(FIELDS, []), ROOT / "assets/staff"), ([], [], []))
-        demo = (ROOT / "data/demo_staff.csv").read_text()
-        records, errors, warnings = load(demo, ROOT / "assets/demo", demo=True)
-        self.assertEqual(len(records), 6)
+        records, errors, warnings = load(production, ROOT / "assets/staff")
+        self.assertTrue(records)
         self.assertFalse(errors or warnings)
-        self.assertFalse(load(demo, ROOT / "assets/demo")[0])
+        self.assertEqual(load(csv_text(FIELDS, []), ROOT / "assets/staff"), ([], [], []))
 
     def test_corrections_and_duplicates(self):
         base = dict(zip(FIELDS, ("ally", "Ally Rigney", "Old title", "Programs", "", "",

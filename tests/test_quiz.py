@@ -7,8 +7,9 @@ from utils.quiz import Attempt, make_questions
 from utils.roster import load
 
 ROOT = Path(__file__).resolve().parents[1]
-PHOTOS = ROOT / "assets/demo"
-STAFF, _, _ = load((ROOT / "data/demo_staff.csv").read_text(), PHOTOS, demo=True)
+PHOTOS = ROOT / "assets/staff"
+ROSTER, _, _ = load((ROOT / "data/staff.csv").read_text(encoding="utf-8"), PHOTOS)
+STAFF = ROSTER[:6]
 
 
 class QuizTests(unittest.TestCase):

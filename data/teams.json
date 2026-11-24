@@ -1,0 +1,222 @@
+{
+  "direct_reports": {
+    "043": [
+      "020",
+      "009",
+      "010",
+      "047",
+      "003",
+      "033",
+      "054"
+    ]
+  },
+  "teams": [
+    {
+      "id": "executive",
+      "name": "Executive Team",
+      "lead": "043",
+      "members": [
+        "043",
+        "020",
+        "009",
+        "010",
+        "047",
+        "003",
+        "033",
+        "054"
+      ]
+    },
+    {
+      "id": "marketing",
+      "name": "Marketing",
+      "lead": "033",
+      "members": [
+        "024",
+        "033",
+        "040"
+      ]
+    },
+    {
+      "id": "development",
+      "name": "Development",
+      "lead": "009",
+      "members": [
+        "009",
+        "013",
+        "016",
+        "039",
+        "055"
+      ]
+    },
+    {
+      "id": "finance",
+      "name": "Finance",
+      "lead": "054",
+      "members": [
+        "046",
+        "054"
+      ]
+    },
+    {
+      "id": "people",
+      "name": "People and Culture",
+      "lead": "010",
+      "members": [
+        "010",
+        "046"
+      ]
+    },
+    {
+      "id": "operations",
+      "name": "Operations",
+      "lead": "047",
+      "members": [
+        "012",
+        "015",
+        "047",
+        "052"
+      ]
+    },
+    {
+      "id": "camps",
+      "name": "Camps, Community and Education",
+      "lead": "037",
+      "members": [
+        "006",
+        "037",
+        "051",
+        "057"
+      ]
+    },
+    {
+      "id": "volunteers",
+      "name": "Volunteers",
+      "lead": "019",
+      "members": [
+        "005",
+        "019",
+        "036"
+      ]
+    },
+    {
+      "id": "guest-services",
+      "name": "Guest Services",
+      "lead": "015",
+      "members": [
+        "015",
+        "017",
+        "026",
+        "027",
+        "028",
+        "041",
+        "050"
+      ]
+    },
+    {
+      "id": "grounds",
+      "name": "Buildings and Grounds",
+      "lead": "052",
+      "members": [
+        "018",
+        "052"
+      ]
+    },
+    {
+      "id": "programs",
+      "name": "Programs Leadership",
+      "lead": "003",
+      "members": [
+        "003",
+        "042"
+      ]
+    },
+    {
+      "id": "high-performance",
+      "name": "High Performance",
+      "lead": "004",
+      "members": [
+        "004",
+        "025",
+        "031"
+      ]
+    },
+    {
+      "id": "equipment",
+      "name": "Program Operations and Equipment",
+      "lead": "001",
+      "members": [
+        "001",
+        "020"
+      ]
+    },
+    {
+      "id": "equestrian",
+      "name": "Equestrian",
+      "lead": "044",
+      "members": [
+        "022",
+        "044",
+        "045"
+      ]
+    },
+    {
+      "id": "ski",
+      "name": "Ski and Snowboard",
+      "lead": null,
+      "members": [
+        "007",
+        "021"
+      ]
+    },
+    {
+      "id": "groups",
+      "name": "Groups and Military",
+      "lead": "023",
+      "members": [
+        "023",
+        "029",
+        "034",
+        "049"
+      ]
+    },
+    {
+      "id": "recreation-specialists",
+      "name": "Recreation Program Specialists",
+      "lead": null,
+      "members": [
+        "008",
+        "030",
+        "035",
+        "038",
+        "048"
+      ]
+    },
+    {
+      "id": "recreation",
+      "name": "Recreation",
+      "lead": "011",
+      "members": [
+        "002",
+        "011"
+      ]
+    },
+    {
+      "id": "rafting",
+      "name": "Rafting",
+      "lead": "032",
+      "members": [
+        "032",
+        "056"
+      ]
+    },
+    {
+      "id": "lodge",
+      "name": "Lodge",
+      "lead": null,
+      "members": [
+        "014",
+        "053"
+      ]
+    }
+  ]
+}

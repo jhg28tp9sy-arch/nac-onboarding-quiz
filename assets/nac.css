@@ -24,24 +24,25 @@
     justify-content: space-between;
     align-items: center;
     gap: .75rem;
-    min-height: 3.875rem;
-    padding: .6rem clamp(.8rem, 4vw, 1.5rem);
+    min-height: 3.5rem;
+    padding: .575rem clamp(.8rem, 4vw, 1.5rem);
     color: #fff;
     background: var(--nac-brand);
     border-radius: var(--nac-radius);
 }
 
-.nac-brand img { display: block; width: 8.35rem; max-width: 43%; height: auto; }
+.nac-brand img { display: block; width: 7.8rem; max-width: 43%; height: auto; }
 .nac-brand span { text-align: right; font-size: .875rem; font-weight: 650; overflow-wrap: anywhere; }
 
-.nac-hero {
+.st-key-home_intro {
     background: linear-gradient(120deg, var(--nac-highlight), transparent 70%), var(--nac-panel);
     border-radius: var(--nac-radius);
     border: 1px solid var(--nac-line);
-    border-top: .225rem solid var(--nac-orange);
-    padding: clamp(1.4rem, 4.8vw, 3.25rem);
-    margin: .65rem 0 .25rem;
+    border-top: .2rem solid var(--nac-orange);
+    padding: clamp(1.05rem, 3.3vw, 2.5rem);
+    margin-block: .45rem .15rem;
 }
+.st-key-study_card { max-width: 22rem; margin-top: .7rem; }
 
 .stApp .nac-hero h1, .stApp .nac-heading, .stApp .nac-section-title {
     font-family: var(--nac-system);
@@ -55,20 +56,20 @@
     text-wrap: balance;
 }
 
-.stApp .nac-hero h1 { font-size: clamp(2.35rem, 6vw, 4.2rem); }
-.stApp .nac-heading { font-size: clamp(1.9rem, 5.2vw, 3rem); margin: .15rem 0 .35rem; }
-.stApp .nac-section-title { font-size: clamp(1.35rem, 3vw, 1.8rem); margin: .9rem 0 .15rem; }
-.stApp .nac-question-title { font-size: clamp(1.25rem, 4vw, 1.85rem); text-align: center; }
+.stApp .nac-hero h1 { font-size: clamp(2.05rem, 5.4vw, 3.8rem); }
+.stApp .nac-heading { font-size: clamp(1.75rem, 4.6vw, 2.75rem); margin: .12rem 0 .25rem; }
+.stApp .nac-section-title { font-size: clamp(1.3rem, 3vw, 1.8rem); margin: .65rem 0 .4rem; }
+.stApp .nac-question-title { font-size: clamp(1.15rem, 3.5vw, 1.75rem); }
 
 .nac-hero p, .nac-intro p {
     max-width: 37rem;
-    font-size: 1.0625rem;
-    line-height: 1.55;
-    margin: .7rem 0 0;
+    font-size: 1rem;
+    line-height: 1.48;
+    margin: .45rem 0 0;
     overflow-wrap: anywhere;
 }
 
-.nac-prompt { text-align: center; font-size: 1.125rem; font-weight: 650; margin: .1rem 0; }
+.nac-prompt { font-size: 1.03rem; font-weight: 650; line-height: 1.35; margin: .1rem 0; }
 
 .nac-card { padding: .12rem .05rem; }
 .stApp .nac-card :is(h2,h3) {
@@ -81,9 +82,8 @@
 .nac-card p { margin: .25rem 0 0; line-height: 1.47; overflow-wrap: anywhere; }
 .nac-level { font-weight: 650; font-size: .875rem; }
 .nac-activity-status { font-size: .875rem; font-weight: 650; padding-top: .35rem; }
-.nac-activity { min-height: 7.35rem; }
+.nac-activity { min-height: 7.15rem; padding-bottom: .65rem; }
 
-.st-key-study_card,
 .st-key-activity_grid [class*="st-key-activity_"]:not(.st-key-activity_grid),
 .st-key-directory_grid [class*="st-key-profile_"],
 .st-key-org_chart [class*="st-key-org_person_"],
@@ -96,6 +96,17 @@
 .st-key-sign_in { max-width: 29rem; margin: .9rem auto 0; }
 .st-key-sign_in .nac-heading { margin-bottom: .55rem; }
 .st-key-quiz_content, .st-key-quiz_intro { max-width: 39rem; margin-inline: auto; }
+.st-key-quiz_content { background: var(--nac-panel); border-radius: var(--nac-radius); }
+.st-key-quiz_content [data-testid="stProgress"] p { font-weight: 650; font-variant-numeric: tabular-nums; }
+.st-key-quiz_identity [data-testid="stHorizontalBlock"] {
+    display: grid;
+    grid-template-columns: min(28%, 10rem) minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(.65rem, 3vw, 1.25rem);
+}
+.st-key-quiz_identity [data-testid="stColumn"] { width: auto !important; min-width: 0; }
+.st-key-quiz_choices [data-testid="stVerticalBlock"] { gap: .5rem; }
+.st-key-quiz_choices button p { line-height: 1.3; }
 
 .nac-placeholder {
     display: grid;
@@ -156,7 +167,7 @@
     grid-template-columns: min(2.55rem, 21%) minmax(0, 1fr) .55rem;
     align-items: center;
     gap: .65rem;
-    min-height: 3.5rem;
+    min-height: 3.375rem;
     padding: .5rem .8rem;
     cursor: pointer;
     list-style: none;
@@ -209,7 +220,7 @@
 [data-testid="stImage"] { margin-inline: auto; max-width: 100%; }
 [data-testid="stImage"] img { border-radius: var(--nac-radius); max-width: 100%; height: auto; }
 .stApp :is([data-testid="stButton"], [data-testid="stFormSubmitButton"], [data-testid="stDownloadButton"]) button {
-    min-block-size: max(44px, 2.9rem);
+    min-block-size: max(48px, 3rem);
     min-inline-size: 44px;
     border-radius: .85rem;
     font-weight: 650;
@@ -221,6 +232,7 @@
     color: #fff;
 }
 .stApp button[kind="primary"]:not(:disabled):active { background-color: #07527e; }
+.stApp button[kind="tertiary"] { min-block-size: 44px; }
 .stApp :is(button, summary, [role="combobox"]) { touch-action: manipulation; }
 .stApp :is(button, summary, [role="combobox"]):focus-visible {
     outline: 2px solid var(--nac-focus);
@@ -281,6 +293,7 @@
     border-radius: .85rem;
     background: var(--nac-panel);
 }
+.st-key-result_metrics > [data-testid="stMetric"] { max-width: 20rem; }
 .st-key-result_metrics [data-testid="stMetricValue"] { font-size: clamp(1.4rem, 4vw, 2.2rem); }
 .st-key-result_metrics :is([data-testid="stMetricValue"], [data-testid="stMetricLabel"]) :is(p, div) {
     white-space: normal;
@@ -297,17 +310,41 @@
     .nac-org-summary:hover { background: var(--nac-panel); }
 }
 
+@keyframes nac-settle-in {
+    from { opacity: .35; transform: translateY(-3px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .nac-org-chevron { transition: transform 135ms ease-out; }
+    .nac-org-node[open] > .nac-org-body, .st-key-quiz_feedback {
+        animation: nac-settle-in 150ms ease-out both;
+    }
+    .stApp :is([data-testid="stButton"], [data-testid="stFormSubmitButton"]) button:not(:disabled) {
+        transition: background-color 120ms ease-out, transform 120ms ease-out;
+    }
+    .stApp button[kind="primary"]:not(:disabled):active { transform: scale(.985); }
+}
+
 @media (max-width: 46rem) {
     .block-container {
         padding-top: 2.65rem;
         padding-top: max(2.65rem, env(safe-area-inset-top, 0px));
     }
-    .nac-brand img { width: 7rem; }
+    .nac-brand img { width: 6.85rem; }
+    .st-key-study_card { max-width: none; }
     .nac-activity { min-height: 0; }
-    :is(.st-key-activity_grid, .st-key-directory_grid, .st-key-directory_filters, .st-key-result_actions)
+    :is(.st-key-activity_grid, .st-key-directory_grid, .st-key-result_actions)
         [data-testid="stHorizontalBlock"] { flex-direction: column; }
-    :is(.st-key-activity_grid, .st-key-directory_grid, .st-key-directory_filters, .st-key-result_actions)
+    :is(.st-key-activity_grid, .st-key-directory_grid, .st-key-result_actions)
         [data-testid="stColumn"] { width: 100% !important; flex: auto !important; }
+    .st-key-directory_filters [data-testid="stHorizontalBlock"] {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+        gap: .65rem;
+    }
+    .st-key-directory_filters [data-testid="stColumn"] { width: auto !important; min-width: 0; }
+    .st-key-directory_filters [data-testid="stColumn"]:first-child { grid-column: 1 / -1; }
     .nac-person { row-gap: .5rem; }
     .nac-person-copy { display: contents; }
     .nac-person h2 { grid-column: 2; grid-row: 1; }
@@ -319,11 +356,16 @@
     .nac-org-summary { padding: .4rem .55rem; gap: .5rem; }
     .nac-org-body { padding: .5rem .22rem .5rem .35rem; }
     .nac-org-children { padding-inline-start: .25rem; }
-    .st-key-quiz_content [data-testid="stImage"] { width: min(42vw, 9rem) !important; }
+    .st-key-quiz_content [data-testid="stImage"] { width: min(44vw, 9rem) !important; }
+    .st-key-quiz_identity [data-testid="stImage"] { width: 100% !important; }
+    .st-key-quiz_identity [data-testid="stHorizontalBlock"] {
+        grid-template-columns: min(33%, 7rem) minmax(0, 1fr);
+    }
 }
 
 @media (orientation: landscape) and (max-height: 36rem) and (pointer: coarse) {
-    .st-key-quiz_content [data-testid="stImage"] { width: min(25vw, 8rem) !important; }
+    .st-key-quiz_content [data-testid="stImage"] { width: min(24vw, 8rem) !important; }
+    .st-key-quiz_identity [data-testid="stImage"] { width: 100% !important; }
 }
 
 @media (prefers-contrast: more) {
@@ -332,7 +374,7 @@
 }
 
 @media (prefers-reduced-transparency: reduce) {
-    .nac-hero { background: none; }
+    .st-key-home_intro { background: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -130,15 +130,13 @@ def person_card(record, photo_root):
 
 
 def home():
-    st.markdown('<div class="nac-hero"><h1>NAC Connect</h1>'
-                '<p>Get to know your coworkers. Start with the staff directory, then practice '
-                'matching names and faces to job titles.</p></div>',
-                unsafe_allow_html=True)
-    title, _, description = PAGES["directory"]
-    with st.container(border=True, key="study_card"):
-        st.markdown(f'<div class="nac-card"><h2>{title}</h2><p>{description}</p></div>',
+    with st.container(key="home_intro"):
+        st.markdown('<div class="nac-hero"><h1>NAC Connect</h1>'
+                    '<p>Get to know the people behind NAC. Learn names, job titles, and how teams fit together.</p></div>',
                     unsafe_allow_html=True)
-        st.button(f"Open {title}", key="directory", width="stretch", on_click=go, args=("directory",))
+        with st.container(key="study_card"):
+            st.button("Open Staff Directory", key="directory", width="stretch",
+                      type="primary", on_click=go, args=("directory",))
 
     st.markdown('<h2 class="nac-section-title">Onboarding quizzes</h2>', unsafe_allow_html=True)
     with st.container(key="activity_grid"):
@@ -409,7 +407,8 @@ def results(mode, attempt, staff, photo_root, restart):
         if any("Review" in (row["name_status"], row["role_status"]) for row in rows):
             st.info("Answers marked Review need manual confirmation and have not earned credit.")
     else:
-        st.metric("Final score", f"{total - len(missed)} / {total}")
+        with st.container(key="result_metrics"):
+            st.metric("Final score", f"{total - len(missed)} / {total}")
         if not missed:
             st.success("You got every answer right.")
 
@@ -420,11 +419,12 @@ def results(mode, attempt, staff, photo_root, restart):
     )
     with st.container(key="result_actions"):
         columns = st.columns(3 if missed and not mastery else 2)
-        columns[0].download_button("Download results CSV", download, f"nac-{mode}.csv", "text/csv",
-                                   width="stretch", on_click="ignore")
-        if missed and not mastery:
-            columns[1].button("Retry missed questions", type="primary", width="stretch",
+        retry = missed and not mastery
+        if retry:
+            columns[0].button("Retry missed questions", type="primary", width="stretch",
                               on_click=restart, args=(missed,))
+        columns[-2].download_button("Download results CSV", download, f"nac-{mode}.csv", "text/csv",
+                                    width="stretch", on_click="ignore")
         columns[-1].button("Restart quiz", width="stretch", on_click=restart)
 
     st.subheader("Photographic answer key" if mastery else "Review answers")
@@ -495,10 +495,10 @@ def quiz(mode, staff, photo_root):
     index = attempt.index
     question = attempt.questions[index]
     total = len(attempt.questions)
-    with st.container(key="quiz_content"):
+    with st.container(border=True, key="quiz_content"):
         st.progress(len(attempt.answers) / total, text=f"Question {index + 1} of {total}")
-        display_photo(question.staff, photo_root, width=240)
         if mastery:
+            display_photo(question.staff, photo_root, width=216)
             name_key, role_key = f"exam-name-{index}", f"exam-role-{index}"
             with st.form(f"exam-{index}", clear_on_submit=True):
                 st.text_input("Name", max_chars=150, autocomplete="off", key=name_key)
@@ -510,30 +510,39 @@ def quiz(mode, staff, photo_root):
                 )
             return
 
-        if mode == "role_recall":
-            st.markdown(f'<h2 class="nac-heading nac-question-title">{html.escape(question.staff.name)}</h2>',
-                        unsafe_allow_html=True)
-        prompt = "What is their job title?" if mode == "role_recall" else "Who is this?"
-        st.markdown(f'<p class="nac-prompt">{prompt}</p>', unsafe_allow_html=True)
+        with st.container(key="quiz_identity"):
+            photo, label = st.columns([1, 2], vertical_alignment="center")
+            with photo:
+                display_photo(question.staff, photo_root, width=180)
+            with label:
+                if mode == "role_recall":
+                    st.markdown(f'<h2 class="nac-heading nac-question-title">{html.escape(question.staff.name)}</h2>',
+                                unsafe_allow_html=True)
+                prompt = "What is their job title?" if mode == "role_recall" else "Who is this?"
+                st.markdown(f'<p class="nac-prompt">{prompt}</p>', unsafe_allow_html=True)
         answered = index in attempt.answers
-        for option_index, option in enumerate(question.options):
-            st.button(option, key=f"option-{mode}-{index}-{option_index}", width="stretch",
-                      disabled=answered, on_click=attempt.submit, args=(index, option))
+        if not answered:
+            with st.container(key="quiz_choices"):
+                for option_index, option in enumerate(question.options):
+                    st.button(option, key=f"option-{mode}-{index}-{option_index}", width="stretch",
+                              on_click=attempt.submit, args=(index, option))
+        else:
+            with st.container(key="quiz_feedback"):
+                if score_choice(mode, question, attempt.answers[index][0]):
+                    st.success("Correct.")
+                else:
+                    expected = getattr(question.staff, FIELDS[mode])
+                    st.error(f"The correct answer is {expected}.")
+                    st.caption(f"You chose {attempt.answers[index][0]}.")
+                context = (question.staff.department if mode == "role_recall"
+                           else f"{question.staff.role} · {question.staff.department}")
+                st.markdown(f'<p class="nac-feedback">{html.escape(context)}</p>', unsafe_allow_html=True)
         score = sum(score_choice(mode, attempt.questions[i], answer[0])
                     for i, answer in attempt.answers.items())
         if attempt.answers:
             st.markdown(f'<p class="nac-quiz-facts" role="status">'
                         f'Running score · {score} / {len(attempt.answers)}</p>', unsafe_allow_html=True)
         if answered:
-            if score_choice(mode, question, attempt.answers[index][0]):
-                st.success("Correct.")
-            else:
-                expected = getattr(question.staff, FIELDS[mode])
-                st.error(f"The correct answer is {expected}.")
-                st.caption(f"You chose {attempt.answers[index][0]}.")
-            context = (question.staff.department if mode == "role_recall"
-                       else f"{question.staff.role} · {question.staff.department}")
-            st.markdown(f'<p class="nac-feedback">{html.escape(context)}</p>', unsafe_allow_html=True)
             st.button("See results" if index + 1 == total else "Next question", type="primary",
                       width="stretch", on_click=attempt.advance, args=(index,))
 

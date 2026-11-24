@@ -206,7 +206,15 @@
     width: 100%;
     min-width: 0;
 }
-.stApp .st-key-quiz_choices button { padding: .4rem .55rem; }
+/* A pointer can land on a new choice when the question changes. Keep its fill neutral. */
+.stApp .st-key-quiz_choices button[kind="secondary"]:not(:disabled) {
+    padding: .4rem .55rem;
+    background-color: transparent;
+    border-color: var(--nac-control-border);
+    color: inherit;
+    box-shadow: none;
+    -webkit-tap-highlight-color: transparent;
+}
 .st-key-quiz_choices button p { line-height: 1.25; }
 .st-key-quiz_content [data-testid="stForm"] { padding: 0; }
 .st-key-quiz_content [data-testid="stWidgetLabel"] { min-height: 0; margin-bottom: .2rem; }

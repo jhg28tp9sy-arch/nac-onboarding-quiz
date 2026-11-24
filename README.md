@@ -1,6 +1,8 @@
 # NAC Connect
 
-NAC Connect helps new National Ability Center employees learn coworkers’ names, job titles, and departments through an interactive org chart, a searchable staff directory, and three quizzes. Quiz results stay in the browser session and can be downloaded as CSV.
+NAC Connect helps new National Ability Center employees learn coworkers’ names, job titles, and departments through an interactive org chart, a searchable staff directory, and three quizzes.
+
+Open **Quiz history** from Home to review completed attempts and download their results as CSV during the signed-in browser session. Each perfect full quiz or Mastery Exam earns a PDF certificate with the score and award time in UTC. Missed-question retries appear as separate practice attempts in the history.
 
 ## Deploy to Streamlit Community Cloud
 

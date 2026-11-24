@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from random import Random
 
 from utils.roster import Staff, photo_path
@@ -19,6 +20,7 @@ class Attempt:
     questions: list[Question]
     index: int = 0
     answers: dict[int, tuple[str, ...]] = field(default_factory=dict)
+    retry: bool | None = None
 
     @property
     def finished(self):
@@ -35,6 +37,14 @@ class Attempt:
             return False
         self.index += 1
         return True
+
+
+@dataclass(frozen=True)
+class QuizResult:
+    attempt: Attempt
+    rows: list[dict[str, str]]
+    missed: set[str]
+    completed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 def make_questions(mode, staff, root, *, ids=None, rng=None):

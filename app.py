@@ -9,7 +9,8 @@ from pathlib import Path
 import streamlit as st
 from streamlit.errors import StreamlitSecretNotFoundError
 
-from utils.quiz import Attempt, FIELDS, make_questions
+from utils.certificate import certificate_pdf
+from utils.quiz import Attempt, FIELDS, QuizResult, make_questions
 from utils.roster import csv_text, load, portrait
 from utils.scoring import grade, normalize, spreadsheet_value
 
@@ -28,6 +29,7 @@ st.html(f"<style>{stylesheet}</style>")
 
 st.session_state.setdefault("page", "home")
 st.session_state.setdefault("attempts", {})
+st.session_state.setdefault("quiz_results", {})
 
 
 def go(page):
@@ -144,6 +146,8 @@ def home():
         with st.container(key="study_card"):
             st.button("Open Staff Directory", key="directory", width="stretch",
                       type="primary", on_click=go, args=("directory",))
+            if st.session_state.quiz_results:
+                st.button("Quiz history", width="stretch", on_click=go, args=("quiz_history",))
 
     with st.container(key="activity_grid"):
         st.html('<h2 class="nac-section-title">Onboarding quizzes</h2>')
@@ -378,7 +382,7 @@ def submit_exam_answer(attempt, index, name_key, role_key):
         attempt.advance(index)
 
 
-def results(mode, attempt, staff, photo_root, restart):
+def score_attempt(mode, attempt, staff):
     mastery = mode == "mastery_exam"
     rows, missed = [], set()
     names = [record.name for record in staff if record.active]
@@ -400,21 +404,60 @@ def results(mode, attempt, staff, photo_root, restart):
         rows.append(row)
         if not correct:
             missed.add(record.id)
+    return QuizResult(attempt, rows, missed)
+
+
+def quiz_history(photo_root):
+    page_heading("Quiz history")
+    st.caption("Results are available while you stay signed in to this browser session.")
+    modes = [mode for mode in PAGES if st.session_state.quiz_results.get(mode)]
+    if not modes:
+        st.info("Complete a quiz to see its results here.")
+        return
+    mode = st.selectbox("Quiz", modes, format_func=lambda key: PAGES[key][0])
+    attempt = st.session_state.attempts.get(mode)
+    if attempt and not attempt.finished:
+        st.button(f"Resume {PAGES[mode][0]}", on_click=go, args=(mode,))
+    results(mode, photo_root)
+
+
+def results(mode, photo_root, restart=None):
+    mastery = mode == "mastery_exam"
+    history = st.session_state.quiz_results[mode]
+
+    def attempt_label(index):
+        label = f"Attempt {index + 1}"
+        retry = getattr(history[index].attempt, "retry", None)
+        if retry is None:
+            return label
+        return f"{label} · {'Missed questions' if retry else 'Full quiz'}"
+
+    scope = f"{st.session_state.page}-{mode}"
+    if len(history) > 1:
+        selected = st.selectbox("Attempt", range(len(history) - 1, -1, -1),
+                                format_func=attempt_label, key=f"{scope}-attempt-{len(history)}")
+    else:
+        selected = 0
+        st.caption(attempt_label(selected))
+    result = history[selected]
+    attempt, rows, missed = result.attempt, result.rows, result.missed
 
     total = len(rows)
     if mastery:
         name_score = sum(row["name_status"] == "Correct" for row in rows)
         role_score = sum(row["role_status"] == "Correct" for row in rows)
+        score = f"{name_score + role_score} / {2 * total}"
         with st.container(key="result_metrics"):
             overall, name_metric, role_metric = st.columns(3)
-        overall.metric("Overall score", f"{name_score + role_score} / {2 * total}")
+        overall.metric("Overall score", score)
         name_metric.metric("Name recall", f"{name_score} / {total}")
         role_metric.metric("Role recall", f"{role_score} / {total}")
         if any("Review" in (row["name_status"], row["role_status"]) for row in rows):
             st.info("Answers marked Review need manual confirmation and have not earned credit.")
     else:
+        score = f"{total - len(missed)} / {total}"
         with st.container(key="result_metrics"):
-            st.metric("Final score", f"{total - len(missed)} / {total}")
+            st.metric("Final score", score)
         if not missed:
             st.success("You got every answer right.")
 
@@ -424,19 +467,26 @@ def results(mode, attempt, staff, photo_root, restart):
                              for row in rows_for_export)
     )
     with st.container(key="result_actions"):
-        columns = st.columns(3 if missed and not mastery else 2)
-        retry = missed and not mastery
-        if retry:
-            columns[0].button("Retry missed questions", type="primary", width="stretch",
-                              on_click=restart, args=(missed,))
-        columns[-2].download_button("Download results CSV", download, f"nac-{mode}.csv", "text/csv",
-                                    width="stretch", on_click="ignore")
-        columns[-1].button("Restart quiz", width="stretch", on_click=restart)
+        export = st
+        if restart is not None:
+            retry = bool(missed) and not mastery
+            columns = st.columns(3 if retry else 2)
+            if retry:
+                columns[0].button("Retry missed questions", type="primary", width="stretch",
+                                  on_click=restart, args=(missed,))
+            export = columns[-2]
+            columns[-1].button("Restart quiz", width="stretch", on_click=restart)
+        export.download_button("Download results CSV", download, f"nac-{mode}.csv", "text/csv",
+                               width="stretch", on_click="ignore")
+
+    if not missed and getattr(attempt, "retry", None) is False:
+        show_certificate(mode, selected + 1, score, result.completed_at, scope)
 
     st.subheader("Photographic answer key" if mastery else "Review answers")
-    page_key = f"{mode}-review-page"
+    review_key = f"{scope}-{selected}-review"
+    page_key = f"{review_key}-page"
     view = st.radio("Show answers", ["All answers", "Missed or flagged"], horizontal=True,
-                    index=0 if mastery or not missed else 1, key=f"{mode}-review-filter",
+                    index=0 if mastery or not missed else 1, key=f"{review_key}-filter",
                     on_change=set_page, args=(page_key, 1))
     review = [(question, row) for question, row in zip(attempt.questions, rows)
               if view == "All answers" or question.staff.id in missed]
@@ -464,6 +514,28 @@ def results(mode, attempt, staff, photo_root, restart):
     page_controls(page_key, page, pages)
 
 
+def show_certificate(mode, attempt_number, score, completed_at, scope):
+    awarded = completed_at.strftime("%b %d, %Y at %H:%M:%S %Z")
+    names = st.session_state.setdefault("certificate_names", {})
+    certificate_key = (mode, attempt_number)
+    with st.container(border=True, key="completion_certificate"):
+        st.subheader("Completion certificate")
+        st.caption(f"Awarded {awarded}")
+        with st.form(f"{scope}-{attempt_number}-certificate-name", border=False):
+            learner = st.text_input("Name on certificate (optional)", value=names.get(certificate_key, ""),
+                                    max_chars=100, autocomplete="off")
+            if st.form_submit_button("Apply name"):
+                names[certificate_key] = learner.strip()
+        recipient = names.get(certificate_key, "")
+        if recipient:
+            st.html(f'<p class="nac-certificate-recipient">PDF prepared for {html.escape(recipient)}</p>')
+        pdf = certificate_pdf(title=PAGES[mode][0], attempt_number=attempt_number, score=score,
+                              awarded=awarded, learner=recipient,
+                              wordmark=ROOT / "assets/nac-wordmark.png")
+        st.download_button("Download certificate (PDF)", pdf, f"nac-{mode}-attempt-{attempt_number}-certificate.pdf",
+                           "application/pdf", width="stretch", on_click="ignore")
+
+
 def quiz(mode, staff, photo_root):
     title, level, description = PAGES[mode]
     key = mode
@@ -471,7 +543,7 @@ def quiz(mode, staff, photo_root):
 
     def restart(ids=None):
         questions = make_questions(mode, staff, photo_root, ids=ids)
-        st.session_state.attempts[key] = Attempt(questions) if questions else None
+        st.session_state.attempts[key] = Attempt(questions, retry=ids is not None) if questions else None
 
     attempt = st.session_state.attempts.get(key)
     if attempt is None or attempt.finished:
@@ -495,7 +567,7 @@ def quiz(mode, staff, photo_root):
             st.button("Start exam" if mastery else "Start quiz", type="primary", width="stretch", on_click=restart)
         return
     if attempt.finished:
-        results(mode, attempt, staff, photo_root, restart)
+        results(mode, photo_root, restart)
         return
 
     index = attempt.index
@@ -593,8 +665,15 @@ except (OSError, UnicodeError):
 if errors:
     st.warning("The roster needs attention. Contact the roster administrator.")
     staff = []
+for mode, attempt in st.session_state.attempts.items():
+    if attempt is not None and attempt.finished:
+        history = st.session_state.quiz_results.setdefault(mode, [])
+        if not history or history[-1].attempt is not attempt:
+            history.append(score_attempt(mode, attempt, staff))
 if page == "directory":
     directory(staff, photo_root)
+elif page == "quiz_history":
+    quiz_history(photo_root)
 elif page in PAGES:
     quiz(page, staff, photo_root)
 else:

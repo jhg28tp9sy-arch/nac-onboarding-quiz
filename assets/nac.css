@@ -124,6 +124,13 @@
     justify-content: space-between;
 }
 .st-key-sign_in [data-testid="stForm"] { background: var(--nac-panel); border-radius: var(--nac-radius); }
+.st-key-completion_certificate {
+    background: var(--nac-panel);
+    border-radius: var(--nac-radius);
+    padding: var(--nac-card-padding);
+}
+.st-key-completion_certificate [data-testid="stForm"] { padding: 0; }
+.nac-certificate-recipient { margin: 0; overflow-wrap: anywhere; }
 
 .st-key-sign_in { max-width: 29rem; margin-inline: auto; }
 .st-key-page_heading { container: nac-heading / inline-size; }

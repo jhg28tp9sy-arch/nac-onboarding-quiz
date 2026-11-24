@@ -90,11 +90,41 @@ class AppTests(unittest.TestCase):
             self.assertTrue(self.app.error if index == 0 else self.app.success)
             self.click("See results" if index + 1 == len(attempt.questions) else "Next question")
         self.assertEqual(self.app.metric[0].value, "5 / 6")
+        self.assertFalse(any(item.value == "Completion certificate" for item in self.app.subheader))
         self.assertEqual(self.app.radio[0].value, "Missed or flagged")
         self.app.radio[0].set_value("All answers").run()
         self.assertEqual(sum('class="nac-review"' in item.value for item in self.app.html), 6)
         self.click("Retry missed questions")
-        self.assertEqual(len(self.app.session_state["attempts"]["role_recall"].questions), 1)
+        retry = self.app.session_state["attempts"]["role_recall"]
+        self.assertEqual(len(retry.questions), 1)
+
+        self.click("Home")
+        self.click("Quiz history")
+        self.assertEqual(self.app.metric[0].value, "5 / 6")
+        self.assertTrue(any("Attempt 1 · Full quiz" == item.value for item in self.app.caption))
+        self.assertFalse(any(button.label == "Retry missed questions" for button in self.app.button))
+        self.click("Resume Role Recall")
+        self.click(retry.questions[0].staff.role)
+        self.click("See results")
+
+        self.assertEqual(self.app.metric[0].value, "1 / 1")
+        self.assertFalse(any(item.value == "Completion certificate" for item in self.app.subheader))
+        self.assertEqual(self.app.selectbox[0].options, ["Attempt 2 · Missed questions", "Attempt 1 · Full quiz"])
+        self.app.selectbox[0].set_value(0).run()
+        self.assertEqual(self.app.metric[0].value, "5 / 6")
+        self.assertEqual(self.app.radio[0].value, "Missed or flagged")
+        self.assertTrue(any("Your answer · Incorrect" in item.value for item in self.app.html))
+        self.assertEqual(len(self.app.session_state["quiz_results"]["role_recall"]), 2)
+
+        self.click("Restart quiz")
+        self.click("Home")
+        self.click("Quiz history")
+        self.assertEqual(self.app.selectbox[1].options, ["Attempt 2 · Missed questions", "Attempt 1 · Full quiz"])
+        self.click("Home")
+        self.click("Sign out")
+        self.app.text_input[0].set_value("example-test-password")
+        self.click("Sign in")
+        self.assertFalse(any(button.label == "Quiz history" for button in self.app.button))
 
     def test_home_resumes_a_quiz_with_its_progress(self):
         self.click("Open Role Recall")
@@ -122,6 +152,24 @@ class AppTests(unittest.TestCase):
             self.app.text_input[1].set_value(question.staff.role if index else "")
             self.click("Submit exam" if index + 1 == len(questions) else "Save and continue")
         self.assertEqual([metric.value for metric in self.app.metric], ["11 / 12", "6 / 6", "5 / 6"])
+        self.click("Home")
+        self.click("Quiz history")
+        self.assertEqual(self.app.selectbox[0].options, ["Mastery Exam"])
+        self.assertEqual([metric.value for metric in self.app.metric], ["11 / 12", "6 / 6", "5 / 6"])
+        self.assertFalse(any(item.value == "Completion certificate" for item in self.app.subheader))
+
+    def test_perfect_mastery_earns_a_certificate(self):
+        with patch.dict(LIMITS, mastery_exam=1):
+            self.click("Open Mastery Exam")
+            self.click("Start exam")
+            question = self.app.session_state["attempts"]["mastery_exam"].questions[0]
+            self.app.text_input[0].set_value(question.staff.name)
+            self.app.text_input[1].set_value(question.staff.role)
+            self.click("Submit exam")
+        self.assertEqual(self.app.metric[0].value, "2 / 2")
+        self.assertTrue(any(item.value == "Completion certificate" for item in self.app.subheader))
+        self.assertTrue(any(button.proto.label == "Download certificate (PDF)"
+                            for button in self.app.get("download_button")))
 
     def test_name_recall(self):
         self.click("Open Name Recall")
@@ -133,6 +181,13 @@ class AppTests(unittest.TestCase):
                                 for item in self.app.html))
             self.click("See results" if index + 1 == len(attempt.questions) else "Next question")
         self.assertEqual(self.app.metric[0].value, "6 / 6")
+        self.assertTrue(any(item.value == "Completion certificate" for item in self.app.subheader))
+        awarded = next(item.value for item in self.app.caption if item.value.startswith("Awarded "))
+        self.assertTrue(awarded.endswith(" UTC"))
+        self.click("Home")
+        self.click("Quiz history")
+        self.assertEqual(self.app.selectbox[0].options, ["Name Recall"])
+        self.assertTrue(any(item.value == awarded for item in self.app.caption))
 
     def test_local_admin_requires_password(self):
         self.assertFalse(any(button.label == "Roster manager" for button in self.app.button))

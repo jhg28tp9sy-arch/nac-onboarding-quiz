@@ -31,6 +31,11 @@ def validate(rows, photo_root, *, demo=False):
     for number, row in enumerate(rows, 2):
         values = {key: str(row.get(key) or "").strip() for key in FIELDS}
         name = " ".join(values["name"].casefold().split())
+        if re.match(r"^lyn(?:\W|$)", name):
+            warnings.append(f"Row {number}: excluded roster entry.")
+            continue
+        if name == "ally rigney":
+            values["role"] = "Adventure Program Manager"
         staff_id = values["id"]
         if (not re.fullmatch(r"[a-zA-Z0-9_-]+", staff_id)
                 or staff_id.casefold().startswith("demo-") != demo

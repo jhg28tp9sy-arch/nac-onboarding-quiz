@@ -140,7 +140,7 @@ button:focus-visible {
 """, unsafe_allow_html=True)
 
 st.session_state.setdefault("page", "home")
-st.session_state.setdefault("demo", True)
+st.session_state.setdefault("demo", False)
 st.session_state.setdefault("attempts", {})
 
 
@@ -168,16 +168,14 @@ def brand():
                 f'src="data:image/png;base64,{wordmark}"></div>', unsafe_allow_html=True)
 
 
-def require_demo_password():
+def require_app_password():
     try:
         password = st.secrets.get("NAC_DEMO_PASSWORD")
     except StreamlitSecretNotFoundError:
         password = None
 
     if not isinstance(password, str) or not password.strip():
-        heading("NAC Connect")
-        st.info("The demo password needs to be configured by the app owner.")
-        st.stop()
+        password = "wyser"  # Public test password. Set NAC_DEMO_PASSWORD to override it.
 
     marker = hmac.digest(password.encode(), b"nac-connect-demo-session", "sha256")
     signed_in = st.session_state.get("demo_access")
@@ -187,9 +185,9 @@ def require_demo_password():
     heading("NAC Connect")
     with st.container(key="demo_sign_in"):
         with st.form("unlock_demo", clear_on_submit=True, border=True):
-            st.write("Enter the password to open the demo.")
-            supplied = st.text_input("Demo password", type="password", max_chars=256)
-            submitted = st.form_submit_button("Open demo", type="primary", width="stretch")
+            st.write("Enter the access password to open NAC Connect.")
+            supplied = st.text_input("Access password", type="password", max_chars=256)
+            submitted = st.form_submit_button("Sign in", type="primary", width="stretch")
         if submitted:
             if hmac.compare_digest(supplied.encode(), password.encode()):
                 st.session_state.demo_access = marker
@@ -445,7 +443,7 @@ def read_roster(path, photo_root, demo, roster_mtime, photos_mtime):
 
 
 brand()
-require_demo_password()
+require_app_password()
 
 page = st.session_state.page
 if page == "admin" and os.getenv("NAC_LOCAL_ADMIN") == "1":

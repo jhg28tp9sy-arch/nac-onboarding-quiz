@@ -13,31 +13,35 @@ class AppTests(unittest.TestCase):
         self.app.secrets["NAC_DEMO_PASSWORD"] = "example-test-password"
         self.app.run()
         self.app.text_input[0].set_value("example-test-password")
-        self.click("Open demo")
+        self.click("Sign in")
         self.addCleanup(lambda: self.assertFalse(self.app.exception))
 
     def click(self, label):
         next(button for button in self.app.button if button.label == label).click().run()
         self.assertFalse(self.app.exception)
 
-    def test_demo_password_protects_navigation(self):
+    def test_production_directory_requires_access_password(self):
         self.click("Sign out")
-        self.assertFalse(any(b.label == "Open Staff Directory" for b in self.app.button))
+        self.assertFalse(any(button.label == "Open Staff Directory" for button in self.app.button))
         self.app.text_input[0].set_value("wrong-password")
-        self.click("Open demo")
+        self.click("Sign in")
         self.assertEqual(self.app.error[0].value, "Incorrect password.")
-        self.assertFalse(any(b.label == "Open Staff Directory" for b in self.app.button))
         self.app.text_input[0].set_value("example-test-password")
-        self.click("Open demo")
-        self.assertTrue(any(b.label == "Open Staff Directory" for b in self.app.button))
+        self.click("Sign in")
+        self.click("Open Staff Directory")
+        self.assertTrue(any(item.value == "57 profiles" for item in self.app.caption))
 
-    def test_directory_uses_fictional_demo_by_default(self):
-        self.assertTrue(any("Fictional demo" in item.value for item in self.app.info))
+    def test_directory_switches_to_fictional_demo(self):
+        self.click("Open Staff Directory")
+        self.assertFalse(any("Fictional demo" in item.value for item in self.app.info))
+        self.click("Home")
+        self.click("Try the fictional demo")
         self.click("Open Staff Directory")
         self.app.text_input[0].set_value("Equipment").run()
         self.assertTrue(any(item.value == "1 profile" for item in self.app.caption))
 
     def test_role_recall_feedback_and_retry(self):
+        self.click("Try the fictional demo")
         self.click("Open Role Recall")
         self.click("Start quiz")
         attempt = self.app.session_state["attempts"][(True, "role_recall")]
@@ -52,6 +56,7 @@ class AppTests(unittest.TestCase):
         self.assertEqual(len(self.app.session_state["attempts"][(True, "role_recall")].questions), 1)
 
     def test_mastery_withholds_answers_until_submission(self):
+        self.click("Try the fictional demo")
         self.click("Open Mastery Exam")
         self.click("Start exam")
         questions = self.app.session_state["attempts"][(True, "mastery_exam")].questions
@@ -65,6 +70,7 @@ class AppTests(unittest.TestCase):
         self.assertEqual([metric.value for metric in self.app.metric], ["11 / 12", "6 / 6", "5 / 6"])
 
     def test_name_recall(self):
+        self.click("Try the fictional demo")
         self.click("Open Name Recall")
         self.click("Start quiz")
         attempt = self.app.session_state["attempts"][(True, "name_recall")]

@@ -42,18 +42,29 @@ class AppTests(unittest.TestCase):
         self.app.text_input[0].set_value("Colton Bradley").run()
         self.assertTrue(any(item.value == "1 profile" for item in self.app.caption))
 
-    def test_org_chart_follows_team_branches_and_back(self):
+    def test_org_chart_follows_paylocity_reporting_links(self):
         self.click("Open Staff Directory")
-        self.assertTrue(any("Direct reports" in item.value for item in self.app.markdown))
+        self.assertTrue(any("Direct reports · 7" in item.value for item in self.app.markdown))
         self.assertTrue(any("Abe Rogers" in item.value for item in self.app.markdown))
-        self.click("Explore Operations")
-        self.assertTrue(any("Executive Team / Operations" in item.value for item in self.app.markdown))
-        self.click("Explore Guest Services")
-        self.assertTrue(any("Operations / Guest Services" in item.value for item in self.app.markdown))
-        self.assertFalse(any("Direct reports" in item.value for item in self.app.markdown))
-        self.click("Back to Operations")
-        self.click("Back to Executive Team")
-        self.assertTrue(any("Direct reports" in item.value for item in self.app.markdown))
+        self.click("View Mike Schultz’s reports")
+        self.assertTrue(any("Willie Ford / Mike Schultz" in item.value for item in self.app.markdown))
+        self.click("View Andrew Ball’s reports")
+        self.assertTrue(any("Mike Schultz / Andrew Ball" in item.value for item in self.app.markdown))
+        self.click("View Mallory Dehm’s reports")
+        self.assertTrue(any("Andrew Ball / Mallory Dehm" in item.value for item in self.app.markdown))
+        self.click("Back to Andrew Ball")
+        self.click("Back to Mike Schultz")
+        self.click("Back to Willie Ford")
+        self.assertTrue(any("Direct reports · 7" in item.value for item in self.app.markdown))
+
+    def test_org_chart_lists_profiles_without_inventing_supervisors(self):
+        self.click("Open Staff Directory")
+        self.app.selectbox[0].set_value("014").run()
+        self.assertTrue(any(item.value == "Supervisor is outside this directory."
+                            for item in self.app.caption))
+        self.app.selectbox[0].set_value("025").run()
+        self.assertTrue(any(item.value == "No supervisor link is available for this profile."
+                            for item in self.app.caption))
 
     def test_role_recall_feedback_and_retry(self):
         self.click("Open Role Recall")

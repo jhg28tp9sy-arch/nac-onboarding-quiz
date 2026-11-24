@@ -24,7 +24,7 @@ python -m unittest discover -s tests -v
 
 The local roster manager is disabled by default.
 
-The org chart uses `data/teams.json`, which groups staff by the source chart and stores confirmed direct-report lists separately. The directory’s **Find staff** view searches the full roster.
+The org chart uses `data/reporting.json` to link staff IDs to their managers from the Paylocity export. The chart links only people in the app roster. Profiles without a verified link are still available in the directory. The directory’s **Find staff** view searches the full roster.
 
 ## Branding
 

@@ -319,89 +319,70 @@ def read_chart(path, modified_ns):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def select_chart_team(team_id):
-    st.session_state.chart_team = team_id
-    st.session_state.chart_team_picker = team_id
-    st.session_state.pop("chart_person", None)
+def select_chart_person(person_id):
+    st.session_state.chart_focus = person_id
+    st.session_state.chart_person_picker = person_id
 
 
-def jump_to_chart_team():
-    st.session_state.chart_trail = []
-    select_chart_team(st.session_state.chart_team_picker)
-
-
-def open_chart_profile(person_id, team_id=None):
-    if team_id:
-        st.session_state.chart_trail.append(st.session_state.chart_team)
-        select_chart_team(team_id)
-    else:
-        st.session_state.chart_person = person_id
-
-
-def back_to_chart_team():
-    select_chart_team(st.session_state.chart_trail.pop())
+def jump_to_chart_person():
+    st.session_state.chart_focus = st.session_state.chart_person_picker
 
 
 def org_chart(active, photo_root):
-    chart_path = ROOT / "data/teams.json"
+    chart_path = ROOT / "data/reporting.json"
     chart = read_chart(chart_path, chart_path.stat().st_mtime_ns)
-    teams = {team["id"]: team for team in chart["teams"]}
     staff = {record.id: record for record in active}
-    reports = chart["direct_reports"]
-    leaders = {team["lead"]: team["id"] for team in teams.values() if team["lead"]}
-    st.session_state.setdefault("chart_team", "executive")
-    st.session_state.setdefault("chart_team_picker", st.session_state.chart_team)
-    trail = st.session_state.setdefault("chart_trail", [])
-    st.selectbox("Jump to a team", list(teams), key="chart_team_picker",
-                 format_func=lambda team_id: teams[team_id]["name"], on_change=jump_to_chart_team)
+    managers = chart["manager_by_employee"]
+    ordered = sorted(staff, key=lambda person_id: staff[person_id].name.casefold())
+    root = chart["root"] if chart["root"] in staff else ordered[0]
+    focus = st.session_state.get("chart_focus")
+    if focus not in staff:
+        select_chart_person(root)
+    else:
+        st.session_state.setdefault("chart_person_picker", focus)
+    st.selectbox("Jump to an employee", ordered, key="chart_person_picker",
+                 format_func=lambda person_id: staff[person_id].name, on_change=jump_to_chart_person)
 
-    team = teams[st.session_state.chart_team]
-    selected = staff.get(st.session_state.get("chart_person"))
-    if selected:
-        st.button(f"Back to {team['name']}", on_click=select_chart_team, args=(team["id"],))
-        with st.container(border=True):
-            person_card(selected, photo_root)
-            for manager_id, members in reports.items():
-                if selected.id in members and manager_id in staff:
-                    st.text(f"Reports to {staff[manager_id].name}")
-            memberships = [entry["name"] for entry in teams.values()
-                           if selected.id in entry["members"] and entry["id"] != "executive"]
-            if memberships:
-                st.text(f"Teams: {', '.join(memberships)}")
-        return
+    person = staff[st.session_state.chart_focus]
+    parent = staff.get(managers.get(person.id))
+    if parent:
+        st.button(f"Back to {parent.name}", on_click=select_chart_person, args=(parent.id,))
 
-    if trail:
-        st.button(f"Back to {teams[trail[-1]]['name']}", on_click=back_to_chart_team)
-    path_names = [teams[team_id]["name"] for team_id in [*trail, team["id"]]]
-    st.markdown(f'<p class="nac-chart-path">{html.escape(" / ".join(path_names))}</p>',
-                unsafe_allow_html=True)
+    path = [person.name]
+    seen = {person.id}
+    node = parent
+    while node and node.id not in seen:
+        path.append(node.name)
+        seen.add(node.id)
+        node = staff.get(managers.get(node.id))
+    if len(path) > 1:
+        st.markdown(f'<p class="nac-chart-path">{html.escape(" / ".join(reversed(path)))}</p>',
+                    unsafe_allow_html=True)
 
-    lead = staff.get(team["lead"])
+    direct = [staff[employee] for employee in ordered if managers.get(employee) == person.id]
     with st.container(key="org_chart"):
-        if lead:
-            with st.container(border=True, key=f"org_person_{lead.id}"):
-                person_card(lead, photo_root)
-        direct = reports.get(lead.id) if lead else None
-        ids = direct if direct is not None else team["members"]
-        members = [staff[staff_id] for staff_id in ids if staff_id in staff and staff[staff_id] != lead]
-        if not members and not lead:
-            st.info("No active employees are listed for this team.")
-        if members:
-            label = "Direct reports" if direct is not None else "Team members"
-            st.markdown(f'<p class="nac-chart-branch">{label}</p>', unsafe_allow_html=True)
-        for offset in range(0, len(members), 2):
-            for person, column in zip(members[offset:offset + 2], st.columns(2)):
-                target = leaders.get(person.id)
-                if team["id"] == "executive" and not target:
-                    target = next((entry["id"] for entry in teams.values()
-                                   if entry["id"] != "executive" and person.id in entry["members"]), None)
-                if target == team["id"]:
-                    target = None
-                text = f"Explore {teams[target]['name']}" if target else f"View {person.name}’s profile"
-                with column, st.container(border=True, key=f"org_person_{person.id}"):
-                    person_card(person, photo_root)
-                    st.button(text, key=f"open_chart_{person.id}", width="stretch",
-                              on_click=open_chart_profile, args=(person.id, target))
+        with st.container(border=True, key=f"org_person_{person.id}"):
+            person_card(person, photo_root)
+            issue = chart["unlinked"].get(person.id)
+            if parent:
+                st.caption(f"Reports to {parent.name}")
+            elif issue == "supervisor_outside_directory":
+                st.caption("Supervisor is outside this directory.")
+            elif person.id != root:
+                st.caption("No supervisor link is available for this profile.")
+        if direct:
+            st.markdown(f'<p class="nac-chart-branch">Direct reports · {len(direct)}</p>',
+                        unsafe_allow_html=True)
+        else:
+            st.caption("No direct reports listed in this directory.")
+        people_with_reports = {managers.get(employee) for employee in ordered}
+        for offset in range(0, len(direct), 2):
+            for record, column in zip(direct[offset:offset + 2], st.columns(2)):
+                action = "reports" if record.id in people_with_reports else "profile"
+                with column, st.container(border=True, key=f"org_person_{record.id}"):
+                    person_card(record, photo_root)
+                    st.button(f"View {record.name}’s {action}", key=f"open_chart_{record.id}",
+                              width="stretch", on_click=select_chart_person, args=(record.id,))
 
 
 def directory(staff, photo_root):

@@ -1,0 +1,7 @@
+id,name,role,department,photo,bio,active,role_recall,name_recall,mastery_exam
+demo-01,Marin Vale,Trail Programs Lead,Programs,01.png,,true,true,true,true
+demo-02,Tessa Solis,Guest Services Coordinator,Guest Services,02.png,,true,true,true,true
+demo-03,Rowan Pike,Equipment Specialist,Operations,03.png,,true,true,true,true
+demo-04,Jules Ember,Volunteer Coordinator,Guest Services,04.png,,true,true,true,true
+demo-05,Dara Wren,Outdoor Instructor,Programs,05.png,,true,true,true,true
+demo-06,Sage Lark,Facilities Technician,Operations,06.png,,true,true,true,true

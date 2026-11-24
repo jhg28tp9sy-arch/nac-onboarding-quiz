@@ -65,8 +65,9 @@ def require_app_password():
     except StreamlitSecretNotFoundError:
         password = None
 
-    if not isinstance(password, str) or not password.strip():
-        password = "wyser"  # Public test password. Set NAC_ACCESS_PASSWORD to override it.
+    # Rotate the old test password even if it was saved in deployment secrets.
+    if not isinstance(password, str) or not password.strip() or password == "wyser":
+        password = "learnnac"
 
     marker = hmac.digest(password.encode(), b"nac-connect-session", "sha256")
     signed_in = st.session_state.get("staff_access")
@@ -158,7 +159,8 @@ def home():
                 action, progress = f"Open {title}", ""
                 if attempt:
                     if attempt.finished:
-                        action, progress = f"Review {title}", "Completed this session"
+                        action = f"Review {title}"
+                        progress = "Ended early" if getattr(attempt, "ended_early", False) else "Completed this session"
                     else:
                         action = f"Resume {title}"
                         if attempt.answers:
@@ -387,9 +389,9 @@ def score_attempt(mode, attempt, staff):
     rows, missed = [], set()
     names = [record.name for record in staff if record.active]
     roles = [record.role for record in staff if record.active]
-    for index, question in enumerate(attempt.questions):
+    for index, answer in sorted(attempt.answers.items()):
+        question = attempt.questions[index]
         record = question.staff
-        answer = attempt.answers[index]
         if mastery:
             row = {"correct_name": record.name, "correct_role": record.role,
                    "submitted_name": answer[0], "submitted_role": answer[1],
@@ -427,7 +429,10 @@ def results(mode, photo_root, restart=None):
 
     def attempt_label(index):
         label = f"Attempt {index + 1}"
-        retry = getattr(history[index].attempt, "retry", None)
+        saved_attempt = history[index].attempt
+        if getattr(saved_attempt, "ended_early", False):
+            return f"{label} · Ended early"
+        retry = getattr(saved_attempt, "retry", None)
         if retry is None:
             return label
         return f"{label} · {'Missed questions' if retry else 'Full quiz'}"
@@ -441,8 +446,11 @@ def results(mode, photo_root, restart=None):
         st.caption(attempt_label(selected))
     result = history[selected]
     attempt, rows, missed = result.attempt, result.rows, result.missed
+    ended_early = getattr(attempt, "ended_early", False)
 
     total = len(rows)
+    if ended_early:
+        st.caption(f"{total} of {len(attempt.questions)} questions answered. Scores reflect submitted answers.")
     if mastery:
         name_score = sum(row["name_status"] == "Correct" for row in rows)
         role_score = sum(row["role_status"] == "Correct" for row in rows)
@@ -457,8 +465,8 @@ def results(mode, photo_root, restart=None):
     else:
         score = f"{total - len(missed)} / {total}"
         with st.container(key="result_metrics"):
-            st.metric("Final score", score)
-        if not missed:
+            st.metric("Score on answered questions" if ended_early else "Final score", score)
+        if not missed and not ended_early:
             st.success("You got every answer right.")
 
     rows_for_export = ({"mode": "staff", **row} for row in rows)
@@ -479,7 +487,7 @@ def results(mode, photo_root, restart=None):
         export.download_button("Download results CSV", download, f"nac-{mode}.csv", "text/csv",
                                width="stretch", on_click="ignore")
 
-    if not missed and getattr(attempt, "retry", None) is False:
+    if not ended_early and not missed and getattr(attempt, "retry", None) is False:
         show_certificate(mode, selected + 1, score, result.completed_at, scope)
 
     st.subheader("Photographic answer key" if mastery else "Review answers")
@@ -488,7 +496,8 @@ def results(mode, photo_root, restart=None):
     view = st.radio("Show answers", ["All answers", "Missed or flagged"], horizontal=True,
                     index=0 if mastery or not missed else 1, key=f"{review_key}-filter",
                     on_change=set_page, args=(page_key, 1))
-    review = [(question, row) for question, row in zip(attempt.questions, rows)
+    answered_questions = (attempt.questions[index] for index in sorted(attempt.answers))
+    review = [(question, row) for question, row in zip(answered_questions, rows)
               if view == "All answers" or question.staff.id in missed]
     if not review:
         st.info("No answers need review.")
@@ -534,6 +543,48 @@ def show_certificate(mode, attempt_number, score, completed_at, scope):
                               wordmark=ROOT / "assets/nac-wordmark.png")
         st.download_button("Download certificate (PDF)", pdf, f"nac-{mode}-attempt-{attempt_number}-certificate.pdf",
                            "application/pdf", width="stretch", on_click="ignore")
+
+
+def close_quiz_options():
+    st.session_state.pop("quiz_option", None)
+
+
+@st.dialog("Quiz options", on_dismiss=close_quiz_options)
+def quiz_options(mode, attempt, restart):
+    action = st.session_state.quiz_option
+    if action == "menu":
+        st.caption("Pause keeps your submitted answers and your place in this session.")
+        if st.button("Pause quiz", type="primary", width="stretch"):
+            close_quiz_options()
+            go("home")
+            st.rerun()
+        st.button("Restart quiz", width="stretch", on_click=set_page, args=("quiz_option", "restart"))
+        st.button("End quiz", width="stretch", on_click=set_page, args=("quiz_option", "end"))
+        return
+
+    if action == "restart":
+        st.write("Restart from the first question? This clears the answers in your current attempt.")
+        if st.button("Confirm restart", type="primary", width="stretch"):
+            retry_ids = ({question.staff.id for question in attempt.questions}
+                         if getattr(attempt, "retry", None) else None)
+            close_quiz_options()
+            restart(retry_ids)
+            st.rerun()
+    else:
+        message = ("End this attempt and review the answers you’ve submitted?" if attempt.answers
+                   else "End this attempt and return Home?")
+        st.write(message)
+        if st.button("Confirm end", type="primary", width="stretch"):
+            close_quiz_options()
+            if attempt.answers:
+                attempt.end()
+            else:
+                st.session_state.attempts.pop(mode, None)
+                go("home")
+            st.rerun()
+    if st.button("Keep taking quiz", width="stretch"):
+        close_quiz_options()
+        st.rerun()
 
 
 def quiz(mode, staff, photo_root):
@@ -584,7 +635,7 @@ def quiz(mode, staff, photo_root):
             label, navigation = st.columns([3, 1])
             label.html(f'<h1 class="nac-heading">{html.escape(title)}</h1>'
                        f'<p class="nac-quiz-facts"><span>Question {index + 1} of {total}</span>{score_markup}</p>')
-            navigation.button("Pause exam" if mastery else "Home", on_click=go, args=("home",))
+            navigation.button("Quiz options", on_click=set_page, args=("quiz_option", "menu"))
         st.progress(len(attempt.answers) / total)
 
         with st.container(key="quiz_layout"):
@@ -621,6 +672,8 @@ def quiz(mode, staff, photo_root):
                     quiz_feedback(mode, question, attempt.answers[index][0])
                     st.button("See results" if index + 1 == total else "Next question", type="primary",
                               width="stretch", on_click=attempt.advance, args=(index,))
+    if st.session_state.get("quiz_option"):
+        quiz_options(mode, attempt, restart)
 
 
 def quiz_feedback(mode, question, answer):

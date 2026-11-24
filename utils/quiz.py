@@ -21,6 +21,7 @@ class Attempt:
     index: int = 0
     answers: dict[int, tuple[str, ...]] = field(default_factory=dict)
     retry: bool | None = None
+    ended_early: bool = False
 
     @property
     def finished(self):
@@ -37,6 +38,11 @@ class Attempt:
             return False
         self.index += 1
         return True
+
+    def end(self):
+        if not self.finished:
+            self.ended_early = len(self.answers) < len(self.questions)
+            self.index = len(self.questions)
 
 
 @dataclass(frozen=True)

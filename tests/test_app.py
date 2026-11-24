@@ -24,6 +24,10 @@ class AppTests(unittest.TestCase):
         next(button for button in self.app.button if button.label == label).click().run()
         self.assertFalse(self.app.exception)
 
+    def pause_quiz(self):
+        self.click("Quiz options")
+        self.click("Pause quiz")
+
     def test_production_directory_requires_access_password(self):
         self.click("Sign out")
         self.assertFalse(any(button.label == "Open Staff Directory" for button in self.app.button))
@@ -35,6 +39,17 @@ class AppTests(unittest.TestCase):
         self.click("Open Staff Directory")
         self.app.radio[0].set_value("Find staff").run()
         self.assertTrue(any(item.value == "57 profiles" for item in self.app.caption))
+
+    def test_default_access_password_changed(self):
+        self.click("Sign out")
+        self.app.secrets.clear()
+        self.app.text_input[0].set_value("wyser")
+        self.click("Sign in")
+        self.assertEqual(self.app.error[0].value, "Incorrect password.")
+        self.app.secrets["NAC_ACCESS_PASSWORD"] = "wyser"
+        self.app.text_input[0].set_value("learnnac")
+        self.click("Sign in")
+        self.assertTrue(any(button.label == "Open Staff Directory" for button in self.app.button))
 
     def test_directory_searches_real_staff_by_name(self):
         self.click("Open Staff Directory")
@@ -98,7 +113,7 @@ class AppTests(unittest.TestCase):
         retry = self.app.session_state["attempts"]["role_recall"]
         self.assertEqual(len(retry.questions), 1)
 
-        self.click("Home")
+        self.pause_quiz()
         self.click("Quiz history")
         self.assertEqual(self.app.metric[0].value, "5 / 6")
         self.assertTrue(any("Attempt 1 · Full quiz" == item.value for item in self.app.caption))
@@ -117,7 +132,7 @@ class AppTests(unittest.TestCase):
         self.assertEqual(len(self.app.session_state["quiz_results"]["role_recall"]), 2)
 
         self.click("Restart quiz")
-        self.click("Home")
+        self.pause_quiz()
         self.click("Quiz history")
         self.assertEqual(self.app.selectbox[1].options, ["Attempt 2 · Missed questions", "Attempt 1 · Full quiz"])
         self.click("Home")
@@ -129,16 +144,56 @@ class AppTests(unittest.TestCase):
     def test_home_resumes_a_quiz_with_its_progress(self):
         self.click("Open Role Recall")
         self.click("Start quiz")
-        self.click("Home")
+        self.pause_quiz()
         self.assertFalse(any("0 of 6 answered" in item.value for item in self.app.html))
         self.click("Resume Role Recall")
         attempt = self.app.session_state["attempts"]["role_recall"]
         self.click(attempt.questions[0].staff.role)
         self.click("Next question")
-        self.click("Home")
+        self.pause_quiz()
         self.assertTrue(any("1 of 6 answered" in item.value for item in self.app.html))
         self.click("Resume Role Recall")
         self.assertEqual(self.app.session_state["attempts"]["role_recall"].index, 1)
+
+    def test_active_quiz_can_cancel_restart_and_save_a_partial_result(self):
+        self.click("Open Role Recall")
+        self.click("Start quiz")
+        first = self.app.session_state["attempts"]["role_recall"]
+        self.click(first.questions[0].staff.role)
+        self.click("Quiz options")
+        self.click("Restart quiz")
+        self.click("Keep taking quiz")
+        self.assertEqual(len(first.answers), 1)
+        self.assertTrue(any(button.label == "Next question" for button in self.app.button))
+
+        self.click("Quiz options")
+        self.click("Restart quiz")
+        self.click("Confirm restart")
+        restarted = self.app.session_state["attempts"]["role_recall"]
+        self.assertEqual(restarted.index, 0)
+        self.assertFalse(restarted.answers)
+        self.assertFalse(self.app.session_state["quiz_results"])
+
+        self.click(restarted.questions[0].staff.role)
+        self.click("Quiz options")
+        self.click("End quiz")
+        self.click("Confirm end")
+        self.assertEqual(self.app.metric[0].value, "1 / 1")
+        self.assertEqual(self.app.metric[0].label, "Score on answered questions")
+        self.assertFalse(any(item.value == "Completion certificate" for item in self.app.subheader))
+        self.click("Home")
+        self.click("Quiz history")
+        self.assertTrue(any(item.value == "Attempt 1 · Ended early" for item in self.app.caption))
+        self.assertEqual(self.app.metric[0].value, "1 / 1")
+
+    def test_end_quiz_before_answering_returns_home(self):
+        self.click("Open Name Recall")
+        self.click("Start quiz")
+        self.click("Quiz options")
+        self.click("End quiz")
+        self.click("Confirm end")
+        self.assertTrue(any(button.label == "Open Name Recall" for button in self.app.button))
+        self.assertFalse(self.app.session_state["quiz_results"])
 
     def test_mastery_withholds_answers_until_submission(self):
         self.click("Open Mastery Exam")

@@ -1,4 +1,4 @@
-.stApp {
+.stApp, [data-testid="stDialog"] {
     --nac-brand: #003c69;
     --nac-orange: #c75b23;
     --nac-focus: #327cac;
@@ -348,29 +348,29 @@
 
 [data-testid="stImage"] { margin-inline: auto; max-width: 100%; }
 [data-testid="stImage"] img { border-radius: var(--nac-radius); max-width: 100%; height: auto; }
-.stApp :is([data-testid="stButton"], [data-testid="stFormSubmitButton"], [data-testid="stDownloadButton"]) button {
+:is(.stApp, [data-testid="stDialog"]) :is([data-testid="stButton"], [data-testid="stFormSubmitButton"], [data-testid="stDownloadButton"]) button {
     min-block-size: max(48px, 3rem);
     min-inline-size: 44px;
     border-radius: .85rem;
     font-weight: 650;
     padding: .5rem .85rem;
 }
-.stApp button[kind="primary"]:not(:disabled) {
+:is(.stApp, [data-testid="stDialog"]) button[kind="primary"]:not(:disabled) {
     background-color: var(--nac-brand);
     border-color: #6e9cb9;
     color: #fff;
 }
-.stApp button[kind="primary"]:not(:disabled):active { background-color: #07527e; }
-.stApp :is([data-testid="stButton"], [data-testid="stDownloadButton"]) button[kind="secondary"]:not(:disabled) {
+:is(.stApp, [data-testid="stDialog"]) button[kind="primary"]:not(:disabled):active { background-color: #07527e; }
+:is(.stApp, [data-testid="stDialog"]) :is([data-testid="stButton"], [data-testid="stDownloadButton"]) button[kind="secondary"]:not(:disabled) {
     border-color: var(--nac-control-border);
 }
 .stApp button[kind="tertiary"] { min-block-size: 44px; }
-.stApp :is(button, summary, [role="combobox"]) { touch-action: manipulation; }
-.stApp :is(button, summary, [role="combobox"]):focus-visible {
+:is(.stApp, [data-testid="stDialog"]) :is(button, summary, [role="combobox"]) { touch-action: manipulation; }
+:is(.stApp, [data-testid="stDialog"]) :is(button, summary, [role="combobox"]):focus-visible {
     outline: 2px solid var(--nac-focus);
     outline-offset: 3px;
 }
-.stApp :is(button p, [role="combobox"], input) {
+:is(.stApp, [data-testid="stDialog"]) :is(button p, [role="combobox"], input) {
     font-size: max(16px, 1rem);
     overflow-wrap: anywhere;
 }
@@ -531,8 +531,8 @@
 }
 
 @media (prefers-contrast: more) {
-    .stApp { --nac-line: currentColor; --nac-control-border: currentColor; }
-    .stApp :is(button, summary, [role="combobox"]):focus-visible { outline-width: 3px; }
+    :is(.stApp, [data-testid="stDialog"]) { --nac-line: currentColor; --nac-control-border: currentColor; }
+    :is(.stApp, [data-testid="stDialog"]) :is(button, summary, [role="combobox"]):focus-visible { outline-width: 3px; }
 }
 
 @media (prefers-reduced-transparency: reduce) {
@@ -540,7 +540,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .stApp *, .stApp *::before, .stApp *::after {
+    :is(.stApp, [data-testid="stDialog"]) *,
+    :is(.stApp, [data-testid="stDialog"]) *::before,
+    :is(.stApp, [data-testid="stDialog"]) *::after {
         animation: none !important;
         transition: none !important;
         scroll-behavior: auto !important;

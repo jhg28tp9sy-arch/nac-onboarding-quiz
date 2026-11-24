@@ -4,11 +4,13 @@ NAC Connect helps new National Ability Center employees learn coworkers’ names
 
 Open **Quiz history** from Home to review completed attempts and download their results as CSV during the signed-in browser session. Each perfect full quiz or Mastery Exam earns a PDF certificate with the score and award time in UTC. Missed-question retries appear as separate practice attempts in the history.
 
+Open **Quiz options** during any question to pause, restart, or end your current attempt. Pausing keeps your submitted answers and your place. Ending early saves a partial result when you have submitted answers.
+
 ## Deploy to Streamlit Community Cloud
 
 Deploy from the GitHub repository `jhg28tp9sy-arch/nac-onboarding-quiz`, branch `main`, and main file path `app.py`. The app password controls access to the running Streamlit app. The public GitHub repository contains the roster and portraits.
 
-The default test password is `wyser`. To override it, set the following value under **Settings → Secrets**.
+The default test password is `learnnac`. To override it, set the following value under **Settings → Secrets**.
 
 ```toml
 NAC_ACCESS_PASSWORD = "replace-with-your-access-password"

@@ -12,6 +12,7 @@ FIELDS = {"role_recall": "role", "name_recall": "name"}
 class Question:
     staff: Staff
     options: tuple[str, ...] = ()
+    review_only: bool = False
 
 
 @dataclass
@@ -21,6 +22,7 @@ class Attempt:
     answers: dict[int, tuple[str, ...]] = field(default_factory=dict)
     retry: bool | None = None
     ended_early: bool = False
+    review_questions: list[Question] = field(default_factory=list)
 
     @property
     def finished(self):
@@ -55,6 +57,8 @@ class QuizResult:
 def make_questions(mode, staff, root, *, ids=None, rng=None):
     rng = rng or Random()
     active = [record for record in staff if record.active]
+    if mode == "name_recall":
+        active = [record for record in active if photo_path(record, root) is not None]
     eligible = [record for record in active if getattr(record, mode)
                 and (ids is None or record.id in ids)]
     rng.shuffle(eligible)
@@ -62,19 +66,15 @@ def make_questions(mode, staff, root, *, ids=None, rng=None):
     questions = []
     for record in eligible:
         if field_name is None:
-            questions.append(Question(record))
+            questions.append(Question(record, review_only=photo_path(record, root) is None))
             continue
         correct = getattr(record, field_name)
         seen = {normalize(correct)}
         candidates = []
-        use_title_clue = field_name == "name" and photo_path(record, root) is None
-        role = normalize(record.role)
         # Prefer distractors from the same department, with randomized ties.
         others = rng.sample(active, len(active))
         others.sort(key=lambda person: person.department != record.department)
         for person in others:
-            if use_title_clue and normalize(person.role) == role:
-                continue
             value = getattr(person, field_name)
             key = normalize(value)
             if key and key not in seen:

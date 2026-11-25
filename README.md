@@ -30,7 +30,7 @@ The local roster manager is disabled by default.
 
 The staff directory, org chart, and all three quizzes use the Paylocity roster in `data/staff.csv`. The org chart uses `data/reporting.json` to link staff IDs to their managers. Select a person’s row to expand their reporting branch in place. **Find staff** searches the roster and can jump from a result to that person’s chart entry.
 
-Staff without a portrait remain in all three quizzes. Name Recall uses a job-title clue for those profiles. Mastery Exam includes them in the answer key as review-only items, and its score reflects the graded questions.
+Role Recall covers the full roster. Name Recall and scored Mastery Exam questions use staff with portraits. Mastery includes the other staff in the answer key under **Review-only profiles**.
 
 ## Branding
 

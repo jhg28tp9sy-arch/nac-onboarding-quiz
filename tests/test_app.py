@@ -227,17 +227,26 @@ class AppTests(unittest.TestCase):
                             for button in self.app.get("download_button")))
 
     def test_mastery_missing_photo_appears_only_in_the_answer_key(self):
-        with patch("utils.quiz.make_questions", side_effect=lambda *args, **kwargs:
-                   [question for question in make_questions(*args, **kwargs) if not question.staff.photo][:1]):
+        def sample_with_and_without_portrait(*args, **kwargs):
+            questions = make_questions(*args, **kwargs)
+            return [next(q for q in questions if q.review_only), next(q for q in questions if not q.review_only)]
+
+        with patch("utils.quiz.make_questions", side_effect=sample_with_and_without_portrait):
             self.click("Open Mastery Exam")
             self.click("Start exam")
-            person = self.app.session_state["attempts"]["mastery_exam"].questions[0].staff
-            self.assertFalse(self.app.text_input)
+            attempt = self.app.session_state["attempts"]["mastery_exam"]
+            self.assertEqual(len(attempt.questions), 1)
+            self.assertEqual(len(attempt.review_questions), 1)
+            person = attempt.review_questions[0].staff
             self.assertFalse(any(person.name in item.value for item in self.app.html))
-            self.click("See results")
+            self.app.text_input[0].set_value(attempt.questions[0].staff.name)
+            self.app.text_input[1].set_value(attempt.questions[0].staff.role)
+            self.click("Submit exam")
+        self.assertEqual([metric.value for metric in self.app.metric], ["2 / 2", "1 / 1", "1 / 1"])
+        self.app.radio[0].set_value("Review-only profiles").run()
         self.assertTrue(any(person.name in item.value for item in self.app.html))
-        self.assertTrue(any("Name · Review only" in item.value for item in self.app.html))
-        self.assertFalse(any(item.value == "Completion certificate" for item in self.app.subheader))
+        self.assertTrue(any(item.value == "Review only" for item in self.app.caption))
+        self.assertEqual(len(self.app.session_state["quiz_results"]["mastery_exam"][0].rows), 2)
 
     def test_name_recall(self):
         self.click("Open Name Recall")

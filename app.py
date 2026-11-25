@@ -386,13 +386,19 @@ def submit_and_advance(attempt, index, *field_keys):
         attempt.advance(index)
 
 
+def attempt_review(attempt):
+    for index, answer in sorted(attempt.answers.items()):
+        yield attempt.questions[index], answer
+    for question in getattr(attempt, "review_questions", ()):
+        yield question, ()
+
+
 def score_attempt(mode, attempt, staff):
     mastery = mode == "mastery_exam"
     rows, missed = [], set()
     names = [record.name for record in staff if record.active]
     roles = [record.role for record in staff if record.active]
-    for index, answer in sorted(attempt.answers.items()):
-        question = attempt.questions[index]
+    for question, answer in attempt_review(attempt):
         record = question.staff
         if mastery:
             name, role = answer or ("", "")
@@ -457,14 +463,14 @@ def results(mode, photo_root, restart=None):
         st.caption(f"{total} of {len(attempt.questions)} questions answered. Scores reflect submitted answers.")
     review_only = len(rows) - total
     if review_only:
-        st.caption(f"Staff profiles included for review only · {review_only}. Scores reflect the graded questions.")
+        st.caption(f"{review_only} staff profiles are available for review alongside your scored answers.")
     if not total:
         st.info("There were no graded questions in this attempt.")
     elif mastery:
         name_score = sum(row["name_status"] == "Correct" for row in rows)
         role_score = sum(row["role_status"] == "Correct" for row in rows)
         score = f"{name_score + role_score} / {2 * total}"
-        with st.container(key="result_metrics"):
+        with st.container(key="mastery_scores"):
             overall, name_metric, role_metric = st.columns(3)
         overall.metric("Overall score", score)
         name_metric.metric("Name recall", f"{name_score} / {total}")
@@ -502,20 +508,27 @@ def results(mode, photo_root, restart=None):
     st.subheader("Photographic answer key" if mastery else "Review answers")
     review_key = f"{scope}-{selected}-review"
     page_key = f"{review_key}-page"
-    view = st.radio("Show answers", ["All answers", "Missed or flagged"], horizontal=True,
+    filters = ["All answers", "Missed or flagged"]
+    if review_only:
+        filters.append("Review-only profiles")
+    view = st.radio("Show answers", filters, horizontal=True,
                     index=0 if mastery or not missed else 1, key=f"{review_key}-filter",
                     on_change=set_page, args=(page_key, 1))
-    answered_questions = (attempt.questions[index] for index in sorted(attempt.answers))
-    review = [(question, row) for question, row in zip(answered_questions, rows)
-              if view == "All answers" or question.staff.id in missed]
+    review = [(question, answer, row) for (question, answer), row in zip(attempt_review(attempt), rows)
+              if view == "All answers"
+              or (view == "Missed or flagged" and question.staff.id in missed)
+              or (view == "Review-only profiles" and not answer)]
     if not review:
         st.info("No answers need review.")
         return
     visible, page, pages = page_slice(review, page_key, size=8)
     with st.container(key="review_cards"):
-        for question, row in visible:
+        for question, answer, row in visible:
             with st.container(border=True, key=f"review_{question.staff.id}"):
                 person_card(question.staff, photo_root)
+                if not answer:
+                    st.caption("Review only")
+                    continue
                 if mastery:
                     details = [
                         (f"Name · {row['name_status']}", row["submitted_name"] or "Blank"),
@@ -602,27 +615,41 @@ def quiz(mode, staff, photo_root):
     mastery = mode == "mastery_exam"
 
     def restart(ids=None):
-        questions = make_questions(mode, staff, photo_root, ids=ids)
-        st.session_state.attempts[key] = Attempt(questions, retry=ids is not None) if questions else None
+        available = make_questions(mode, staff, photo_root, ids=ids)
+        if not available:
+            st.session_state.attempts[key] = None
+            return
+        review_questions = sorted((question for question in available if question.review_only),
+                                  key=lambda question: question.staff.name.casefold())
+        questions = [question for question in available if not question.review_only]
+        st.session_state.attempts[key] = Attempt(questions, retry=ids is not None, review_questions=review_questions)
 
     attempt = st.session_state.attempts.get(key)
     if attempt is None or attempt.finished:
         page_heading(title)
     if attempt is None:
         available = make_questions(mode, staff, photo_root)
-        with st.container(key="quiz_intro"):
+        with st.container(border=mastery, key="mastery_intro" if mastery else "quiz_intro"):
             if not available:
-                st.info("This quiz opens when the roster includes eligible staff.")
+                st.info("Name Recall opens when eligible staff have portraits." if mode == "name_recall"
+                        else "This quiz opens when the roster includes eligible staff.")
                 return
-            st.markdown(f"**{level} · {len(available)} questions**")
-            st.html(f'<p class="nac-intro">{html.escape(description)}</p>')
             if mastery:
-                st.write("Enter a full name and job title for each portrait. The answer key opens after submission.")
-                st.caption("Profiles without a photo appear in the answer key for review.")
+                review_count = sum(question.review_only for question in available)
+                portrait_count = len(available) - review_count
+                st.html(f'<p class="nac-mastery-count"><strong>{portrait_count}</strong> portrait questions</p>')
+                if portrait_count:
+                    st.write("Enter each person’s full name and job title. Scores and answers appear after submission.")
+                if review_count:
+                    st.caption(f"{review_count} staff profiles without portraits appear in the answer key for review.")
+                start_label = "Start exam" if portrait_count else "Review staff"
             else:
+                st.markdown(f"**{level} · {len(available)} questions**")
+                st.html(f'<p class="nac-intro">{html.escape(description)}</p>')
                 st.write("Get feedback after each answer, then review and retry missed questions.")
+                start_label = "Start quiz"
             st.caption("Progress is saved for this browser session.")
-            st.button("Start exam" if mastery else "Start quiz", type="primary", width="stretch", on_click=restart)
+            st.button(start_label, type="primary", width="stretch", on_click=restart)
         return
     if attempt.finished:
         results(mode, photo_root, restart)
@@ -641,8 +668,9 @@ def quiz(mode, staff, photo_root):
     with st.container(border=True, key="quiz_content"):
         with st.container(key="quiz_header"):
             label, navigation = st.columns([3, 1])
+            item = "Portrait" if mastery else "Question"
             label.html(f'<h1 class="nac-heading">{html.escape(title)}</h1>'
-                       f'<p class="nac-quiz-facts"><span>Question {index + 1} of {total}</span>{score_markup}</p>')
+                       f'<p class="nac-quiz-facts"><span>{item} {index + 1} of {total}</span>{score_markup}</p>')
             navigation.button("Quiz options", on_click=set_page, args=("quiz_option", "menu"))
         st.progress(len(attempt.answers) / total)
 
@@ -650,7 +678,8 @@ def quiz(mode, staff, photo_root):
             portrait_column, response = st.columns([1, 2])
             with portrait_column:
                 if mastery:
-                    has_photo = display_quiz_photo(question.staff, photo_root)
+                    with st.container(key="mastery_portrait"):
+                        has_photo = display_quiz_photo(question.staff, photo_root)
                 else:
                     with st.container(key="quiz_identity"):
                         photo, prompt_column = st.columns([1, 2])
@@ -660,14 +689,11 @@ def quiz(mode, staff, photo_root):
                         if mode == "role_recall":
                             name = (f'<h2 class="nac-heading nac-question-title">'
                                     f'{html.escape(question.staff.name)}</h2>')
-                        prompt = "What is their job title?" if mode == "role_recall" else "Who is this?"
-                        if mode == "name_recall" and not has_photo:
-                            name = (f'<h2 class="nac-heading nac-question-title">'
-                                    f'{html.escape(question.staff.role)}</h2>')
-                            prompt = "Who holds this job title?"
-                        prompt_column.html(f'<div class="nac-quiz-prompt">{name}<p class="nac-prompt">{prompt}</p></div>')
+                        if mode == "role_recall" or has_photo:
+                            prompt = "What is their job title?" if mode == "role_recall" else "Who is this?"
+                            prompt_column.html(f'<div class="nac-quiz-prompt">{name}<p class="nac-prompt">{prompt}</p></div>')
             with response:
-                if (mastery and not has_photo) or (not mastery and not question.options):
+                if (mode != "role_recall" and not has_photo) or (not mastery and not question.options):
                     st.caption("This profile will appear in the answer review as an unscored item.")
                     st.button("See results" if index + 1 == total else "Continue", type="primary", width="stretch",
                               on_click=submit_and_advance, args=(attempt, index))

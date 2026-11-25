@@ -78,6 +78,8 @@ class AppTests(unittest.TestCase):
         self.assertTrue(any("Direct reports · 7" in item.value for item in self.app.html))
         chart = next(item.value for item in self.app.html if '<div class="nac-org-tree">' in item.value)
         self.assertIn('<details class="nac-org-node"', chart)
+        self.assertEqual(chart.count('<details class="nac-org-node"'), 106)
+        self.assertLessEqual(chart.count('loading="lazy"'), 7)
         self.assertIn("Abe Rogers", chart)
         self.assertIn("Reports to Mike Schultz", chart)
         self.app.selectbox(key="chart_person_picker").set_value("041").run()

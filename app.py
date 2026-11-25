@@ -7,9 +7,9 @@ import os
 from pathlib import Path
 
 import streamlit as st
+from PIL import Image
 from streamlit.errors import StreamlitSecretNotFoundError
 
-from utils.print_certificate import certificate_pdf
 from utils.quiz import Attempt, FIELDS, Question, QuizResult, make_questions
 from utils.roster import csv_text, load, photo_path, portrait
 from utils.scoring import grade, normalize, spreadsheet_value
@@ -50,13 +50,17 @@ def page_heading(title):
 
 @st.cache_data(show_spinner=False)
 def brand_image():
-    return base64.b64encode((ROOT / "assets/nac-wordmark.png").read_bytes()).decode()
+    buffer = io.BytesIO()
+    with Image.open(ROOT / "assets/nac-wordmark.png") as wordmark:
+        wordmark.thumbnail((320, 120), Image.Resampling.LANCZOS)
+        wordmark.save(buffer, format="WEBP", lossless=True)
+    return base64.b64encode(buffer.getvalue()).decode()
 
 
 def brand():
     wordmark = brand_image()
     st.html('<div class="nac-brand"><img alt="National Ability Center" '
-            f'src="data:image/png;base64,{wordmark}"><span>Employee onboarding</span></div>')
+            f'src="data:image/webp;base64,{wordmark}"><span>Employee onboarding</span></div>')
 
 
 def require_app_password():
@@ -91,24 +95,25 @@ def require_app_password():
 
 
 @st.cache_data(show_spinner=False, max_entries=256)
-def photo_bytes(path, modified_ns, thumbnail_width=0):
+def portrait_source(path, modified_ns, thumbnail_width):
     image = portrait(path)
     if image is None:
         return None
-    if thumbnail_width:
-        image.thumbnail((thumbnail_width, thumbnail_width * 5 // 4))
+    image.thumbnail((thumbnail_width, thumbnail_width * 5 // 4))
     buffer = io.BytesIO()
-    image.save(buffer, format="JPEG", quality=80 if thumbnail_width else 85, optimize=True)
-    return buffer.getvalue()
+    image.save(buffer, format="JPEG", quality=80, optimize=True)
+    return f"data:image/jpeg;base64,{base64.b64encode(buffer.getvalue()).decode()}"
 
 
-def roster_photo(record, root, *, thumbnail_width=0):
+def roster_photo(record, root, *, thumbnail_width):
+    if not record.photo:
+        return None
     filename = Path(record.photo)
     path = (root / filename).resolve()
     valid = (filename.name == record.photo and path.parent == root.resolve()
              and filename.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"})
     try:
-        return photo_bytes(str(path), path.stat().st_mtime_ns, thumbnail_width) if valid else None
+        return portrait_source(str(path), path.stat().st_mtime_ns, thumbnail_width) if valid else None
     except OSError:
         return None
 
@@ -118,18 +123,18 @@ def display_quiz_photo(record, root):
     if image is None:
         st.html('<div class="nac-placeholder">Photo unavailable</div>')
     else:
-        encoded = base64.b64encode(image).decode()
         st.html(f'<img class="nac-quiz-portrait" alt="Staff portrait" width="360" height="450" '
-                f'src="data:image/jpeg;base64,{encoded}">')
+                f'src="{image}">')
     return image is not None
 
 
-def thumbnail_markup(record, photo_root, width=160):
-    image = roster_photo(record, photo_root, thumbnail_width=width)
+def thumbnail_markup(record, photo_root, width=144):
+    image = roster_photo(record, photo_root, thumbnail_width=width) if width else None
     if image:
-        encoded = base64.b64encode(image).decode()
-        return f'<img alt="" loading="lazy" decoding="async" src="data:image/jpeg;base64,{encoded}">'
-    return '<span class="nac-person-placeholder" aria-hidden="true"></span>'
+        return f'<img alt="" loading="lazy" decoding="async" src="{image}">'
+    parts = record.name.split()
+    initials = html.escape((parts[0][0] + parts[-1][0] if len(parts) > 1 else parts[0][0]).upper())
+    return f'<span class="nac-person-placeholder" aria-hidden="true">{initials}</span>'
 
 
 def person_card(record, photo_root):
@@ -143,9 +148,10 @@ def person_card(record, photo_root):
 
 def home():
     with st.container(key="home_intro"):
-        st.html('<div class="nac-hero"><h1>NAC Connect</h1>'
-                '<p>Get to know the people behind NAC. Learn names, job titles, and how teams fit together.</p></div>')
-        with st.container(key="study_card"):
+        intro, actions = st.columns([2.15, 1], vertical_alignment="center")
+        intro.html('<div class="nac-hero"><h1>NAC Connect</h1>'
+                   '<p>Get to know the people behind NAC. Learn names, job titles, and how teams fit together.</p></div>')
+        with actions, st.container(key="study_card"):
             st.button("Open Staff Directory", key="directory", width="stretch",
                       type="primary", on_click=go, args=("directory",))
             if st.session_state.quiz_results:
@@ -172,9 +178,10 @@ def home():
                         f'<h3>{title}</h3><p>{description}</p>{progress_markup}</div>')
                 st.button(action, key=page, width="stretch", on_click=go, args=(page,),
                           type="primary" if page == "role_recall" else "secondary")
-    if os.getenv("NAC_LOCAL_ADMIN") == "1":
-        st.button("Roster manager", on_click=go, args=("admin",))
-    st.button("Sign out", type="tertiary", on_click=st.session_state.clear)
+    with st.container(key="home_utilities", horizontal=True):
+        if os.getenv("NAC_LOCAL_ADMIN") == "1":
+            st.button("Roster manager", on_click=go, args=("admin",))
+        st.button("Sign out", type="tertiary", on_click=st.session_state.clear)
 
 
 def page_slice(items, key, size=12):
@@ -280,7 +287,7 @@ def jump_to_chart_person():
     st.session_state.chart_focus = st.session_state.chart_person_picker
 
 
-def report_branch(record, parent, children, photo_root, ancestors):
+def report_branch(record, parent, children, photo_root, ancestors, *, show_portrait=False):
     name, title, team, manager = map(html.escape,
                                     (record.name, record.role, record.department, parent.name))
     ancestors = ancestors | {record.id}
@@ -292,7 +299,7 @@ def report_branch(record, parent, children, photo_root, ancestors):
                    f'<div class="nac-org-children">{nested}</div>')
     return (
         f'<details class="nac-org-node" id="staff-{html.escape(record.id)}">'
-        f'<summary class="nac-org-summary">{thumbnail_markup(record, photo_root, width=120)}'
+        f'<summary class="nac-org-summary">{thumbnail_markup(record, photo_root, width=112 if show_portrait else 0)}'
         f'<span><strong>{name}</strong><small>{title}</small></span>'
         '<span class="nac-org-chevron" aria-hidden="true"></span></summary>'
         f'<div class="nac-org-body"><p>{team}</p><p>Reports to {manager}</p>{reports}</div></details>'
@@ -322,10 +329,12 @@ def org_chart(active, photo_root):
 
     person = staff[st.session_state.chart_focus]
     parent = staff.get(managers.get(person.id))
-    if parent:
-        st.button(f"Back to {parent.name}", on_click=select_chart_person, args=(parent.id,))
-    if person.id != root and (parent is None or parent.id != root):
-        st.button("Top of chart", on_click=select_chart_person, args=(root,))
+    if parent or person.id != root:
+        with st.container(key="chart_navigation", horizontal=True):
+            if parent:
+                st.button(f"Back to {parent.name}", on_click=select_chart_person, args=(parent.id,))
+            if person.id != root and (parent is None or parent.id != root):
+                st.button("Top of chart", on_click=select_chart_person, args=(root,))
 
     path = [person.name]
     seen = {person.id}
@@ -356,7 +365,7 @@ def org_chart(active, photo_root):
         if direct:
             st.html(f'<p class="nac-chart-branch">Direct reports · {len(direct)}</p>')
             st.caption("Select a name to expand their department, supervisor, and direct reports.")
-            branches = "".join(report_branch(record, person, children, photo_root, {person.id})
+            branches = "".join(report_branch(record, person, children, photo_root, {person.id}, show_portrait=True)
                                for record in direct)
             st.html(f'<div class="nac-org-tree">{branches}</div>')
         else:
@@ -370,7 +379,8 @@ def directory(staff, photo_root):
         st.info("The staff directory will open when the approved roster is added.")
         return
     with st.container(key="directory_view_control"):
-        view = st.radio("Directory view", ["Org chart", "Find staff"], horizontal=True, key="directory_view")
+        view = st.radio("Directory view", ["Org chart", "Find staff"], horizontal=True, key="directory_view",
+                        label_visibility="collapsed", width="stretch")
     if view == "Find staff":
         search_staff(active, photo_root)
     else:
@@ -511,9 +521,10 @@ def results(mode, photo_root, restart=None):
     filters = ["All answers", "Missed or flagged"]
     if review_only:
         filters.append("Review-only profiles")
-    view = st.radio("Show answers", filters, horizontal=True,
-                    index=0 if mastery or not missed else 1, key=f"{review_key}-filter",
-                    on_change=set_page, args=(page_key, 1))
+    with st.container(key="answer_view"):
+        view = st.radio("Show answers", filters, horizontal=True,
+                        index=0 if mastery or not missed else 1, key=f"{review_key}-filter",
+                        on_change=set_page, args=(page_key, 1), width="stretch")
     review = [(question, answer, row) for (question, answer), row in zip(attempt_review(attempt), rows)
               if view == "All answers"
               or (view == "Missed or flagged" and question.staff.id in missed)
@@ -546,6 +557,8 @@ def results(mode, photo_root, restart=None):
 
 
 def show_certificate(mode, attempt_number, score, completed_at, scope):
+    from utils.print_certificate import certificate_pdf
+
     awarded = completed_at.strftime("%b %d, %Y at %H:%M:%S %Z")
     names = st.session_state.setdefault("certificate_names", {})
     certificate_key = (mode, attempt_number)
@@ -631,21 +644,23 @@ def quiz(mode, staff, photo_root):
         review_questions.sort(key=lambda question: question.staff.name.casefold())
         return questions, review_questions
 
-    def restart(ids=None):
-        questions, review_questions = prepare_questions(ids)
+    def start_attempt(questions, review_questions, *, retry=False):
         if not questions and not review_questions:
             st.session_state.attempts[key] = None
             return
-        attempt = Attempt(questions, retry=ids is not None)
+        attempt = Attempt(questions, retry=retry)
         attempt.review_questions = review_questions
         st.session_state.attempts[key] = attempt
+
+    def restart(ids=None):
+        start_attempt(*prepare_questions(ids), retry=ids is not None)
 
     attempt = st.session_state.attempts.get(key)
     if attempt is None or attempt.finished:
         page_heading(title)
     if attempt is None:
         questions, review_questions = prepare_questions()
-        with st.container(border=mastery, key="mastery_intro" if mastery else "quiz_intro"):
+        with st.container(border=True, key="mastery_intro" if mastery else "quiz_intro"):
             if not questions and not review_questions:
                 st.info("Name Recall opens when eligible staff have portraits." if mode == "name_recall"
                         else "This quiz opens when the roster includes eligible staff.")
@@ -665,7 +680,8 @@ def quiz(mode, staff, photo_root):
                 st.write("Get feedback after each answer, then review and retry missed questions.")
                 start_label = "Start quiz"
             st.caption("Progress is saved for this browser session.")
-            st.button(start_label, type="primary", width="stretch", on_click=restart)
+            st.button(start_label, type="primary", width="stretch", on_click=start_attempt,
+                      args=(questions, review_questions))
         return
     if attempt.finished:
         results(mode, photo_root, restart)

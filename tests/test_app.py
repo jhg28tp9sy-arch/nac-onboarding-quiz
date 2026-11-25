@@ -67,7 +67,7 @@ class AppTests(unittest.TestCase):
         self.app.text_input(key="staff_query").set_value("odonnell declan").run()
         self.assertTrue(any(item.value == "1 profile" for item in self.app.caption))
         self.click("View Declan ODonnell in org chart")
-        self.assertEqual(self.app.selectbox(key="chart_person_picker").value, "049")
+        self.assertEqual(self.app.session_state["chart_focus"], "049")
         self.click("Back to search results")
         self.assertEqual(self.app.text_input(key="staff_query").value, "odonnell declan")
         self.click("Clear filters")
@@ -84,19 +84,31 @@ class AppTests(unittest.TestCase):
         self.assertNotIn("data:image/", chart)
         self.assertIn("Abe Rogers", chart)
         self.assertIn("Reports to Mike Schultz", chart)
-        self.app.selectbox(key="chart_person_picker").set_value("041").run()
+        self.app.text_input(key="chart_query").set_value("dehm mall").run()
+        self.app.button(key="chart_match_041").click().run()
         self.assertTrue(any("William Ford / Mike Schultz / Andrew Ball / Mallory Dehm" in item.value
                             for item in self.app.html))
+        self.assertEqual(self.app.text_input(key="chart_query").value, "")
         self.click("Back to Andrew Ball")
         self.click("Top of chart")
         self.assertTrue(any("Direct reports · 7" in item.value for item in self.app.html))
 
     def test_org_chart_includes_supervisors_added_from_paylocity(self):
         self.click("Open Staff Directory")
-        self.app.selectbox[0].set_value("014").run()
+        self.app.text_input(key="chart_query").set_value("tr sTon").run()
+        self.app.button(key="chart_match_014").click().run()
         self.assertTrue(any(item.value == "Reports to Mike Benson" for item in self.app.caption))
         self.click("Back to Mike Benson")
-        self.assertEqual(len(self.app.selectbox[0].options), 107)
+        self.assertTrue(any("Mike Benson" in item.value for item in self.app.html))
+
+    def test_org_chart_search_handles_name_fragments_and_punctuation(self):
+        self.click("Open Staff Directory")
+        for query, employee in (("schul mi", "047"), ("O’DON", "049"), ("  Brád   Col  ", "001")):
+            with self.subTest(query=query):
+                self.app.text_input(key="chart_query").set_value(query).run()
+                self.assertEqual(self.app.button(key=f"chart_match_{employee}").key, f"chart_match_{employee}")
+        self.app.text_input(key="chart_query").set_value("zzzzzz").run()
+        self.assertTrue(any("No matching names" in item.value for item in self.app.caption))
 
     def test_role_recall_feedback_and_retry(self):
         self.click("Open Role Recall")

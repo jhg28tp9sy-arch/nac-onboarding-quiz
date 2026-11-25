@@ -331,6 +331,11 @@
     border-radius: .9rem;
     background: var(--nac-panel);
 }
+.st-key-chart_search { max-width: 36rem; gap: .45rem; }
+.st-key-chart_search [data-testid="stButton"] button {
+    justify-content: flex-start;
+    text-align: start;
+}
 
 .stApp .nac-person h2 {
     color: inherit;

@@ -4,6 +4,8 @@ import html
 import io
 import json
 import os
+import unicodedata
+from inspect import signature
 from pathlib import Path
 
 import streamlit as st
@@ -23,6 +25,7 @@ PAGES = {
     "mastery_exam": ("Mastery Exam", "Advanced", "Recall each coworker’s name and job title from their portrait."),
 }
 STAFF_FILTERS = ("staff_query", "staff_department", "staff_sort", "staff_page")
+LIVE_SEARCH = {"type": "search", "live": "220ms"} if "live" in signature(st.text_input).parameters else {}
 
 st.set_page_config(page_title="NAC Connect", page_icon=str(ROOT / "assets/logo.png"), layout="wide")
 stylesheet = (ROOT / "assets/nac.css").read_text(encoding="utf-8")
@@ -240,23 +243,29 @@ def return_to_search():
     st.session_state.directory_view = "Find staff"
 
 
+def search_text(value):
+    decomposed = unicodedata.normalize("NFKD", value)
+    plain = "".join(character for character in decomposed if not unicodedata.combining(character))
+    return normalize(plain.replace("‘", "'").replace("ʼ", "'"))
+
+
 def search_staff(active, photo_root):
     for key, value in st.session_state.pop("staff_search", {}).items():
         st.session_state.setdefault(key, value)
     with st.container(key="directory_filters"):
         search, filter_column, order = st.columns([2, 1, 1])
     query = search.text_input("Search by name, role, or department", key="staff_query",
-                              on_change=set_page, args=("staff_page", 1))
+                              on_change=set_page, args=("staff_page", 1), **LIVE_SEARCH)
     departments = sorted({record.department for record in active}, key=str.casefold)
     selected = filter_column.selectbox("Department", [None, *departments], key="staff_department",
                                        format_func=lambda item: item or "All departments",
                                        on_change=set_page, args=("staff_page", 1))
     sorting = order.selectbox("Sort by name", ["A to Z", "Z to A"], key="staff_sort",
                               on_change=set_page, args=("staff_page", 1))
-    terms = normalize(query).split()
+    terms = search_text(query).split()
     matches = []
     for record in active:
-        haystack = normalize(f"{record.name} {record.role} {record.department}")
+        haystack = search_text(f"{record.name} {record.role} {record.department}")
         if (selected is None or record.department == selected) and all(term in haystack for term in terms):
             matches.append(record)
     matches.sort(key=lambda record: record.name.casefold(), reverse=sorting == "Z to A")
@@ -291,11 +300,46 @@ def read_chart(path, modified_ns):
 
 def select_chart_person(person_id):
     st.session_state.chart_focus = person_id
-    st.session_state.chart_person_picker = person_id
+    st.session_state.chart_query = ""
 
 
-def jump_to_chart_person():
-    st.session_state.chart_focus = st.session_state.chart_person_picker
+def open_chart_match(person_id):
+    select_chart_person(person_id)
+    st.session_state.chart_match_selected = True
+
+
+@st.fragment
+def chart_search(staff):
+    if st.session_state.pop("chart_match_selected", False):
+        st.rerun()
+    with st.container(key="chart_search"):
+        query = st.text_input("Search the org chart", key="chart_query", max_chars=100,
+                              placeholder="First or last name", autocomplete="off", **LIVE_SEARCH)
+        if not LIVE_SEARCH:
+            st.caption("Press Enter to search.")
+        text = search_text(query)
+        parts = text.split()
+        if not parts:
+            return
+
+        matches = []
+        for record in staff:
+            name = search_text(record.name)
+            if all(part in name for part in parts):
+                words = name.split()
+                prefixes = all(any(word.startswith(part) for word in words) for part in parts)
+                matches.append(((name != text, not prefixes, name), record))
+        matches.sort(key=lambda match: match[0])
+
+        if not matches:
+            st.caption("No matching names. Try a shorter search.")
+            return
+        limit = 8
+        if len(matches) > limit:
+            st.caption(f"Showing {limit} of {len(matches)} matches. Type more to narrow the results.")
+        for _, record in matches[:limit]:
+            st.button(f"{record.name} · {record.role}", key=f"chart_match_{record.id}", width="stretch",
+                      on_click=open_chart_match, args=(record.id,))
 
 
 def report_branch(record, parent, children, photo_root, ancestors):
@@ -333,10 +377,7 @@ def org_chart(active, photo_root):
     focus = st.session_state.get("chart_focus")
     if focus not in staff:
         select_chart_person(root)
-    else:
-        st.session_state.setdefault("chart_person_picker", focus)
-    st.selectbox("Jump to an employee", ordered, key="chart_person_picker",
-                 format_func=lambda person_id: staff[person_id].name, on_change=jump_to_chart_person)
+    chart_search([staff[person_id] for person_id in ordered])
 
     person = staff[st.session_state.chart_focus]
     parent = staff.get(managers.get(person.id))

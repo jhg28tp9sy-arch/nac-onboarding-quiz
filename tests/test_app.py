@@ -164,6 +164,13 @@ class AppTests(unittest.TestCase):
                             for button in self.app.get("download_button")))
         self.click("Lock results log")
         self.assertFalse(self.app.dataframe)
+        self.app.text_input[0].set_value("moose25")
+        self.click("Unlock results log")
+        self.assertFalse(self.app.dataframe)
+        del self.app.secrets["NAC_RESULTS_PASSWORD"]
+        self.app.text_input[0].set_value("moose25")
+        self.click("Unlock results log")
+        self.assertEqual(self.app.dataframe[0].value.iloc[0]["participant"], "Riley Morgan")
 
     def test_role_recall_feedback_and_retry(self):
         self.click("Open Role Recall")

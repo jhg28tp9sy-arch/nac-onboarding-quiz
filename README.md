@@ -18,12 +18,13 @@ NAC_ACCESS_PASSWORD = "replace-with-your-access-password"
 
 ### Private results log
 
-Add these settings under **Settings → Secrets** to enable the shared history on Streamlit Community Cloud.
+Add the database connection under **Settings → Secrets** to enable the shared history on Streamlit Community Cloud.
 
 ```toml
-NAC_RESULTS_PASSWORD = "replace-with-your-results-log-password"
 NAC_RESULTS_DATABASE_URL = "postgresql://user:password@host/database?sslmode=require"
 ```
+
+The default results log password is `moose25` and is visible in this public repository. Set `NAC_RESULTS_PASSWORD` in **Secrets** to override it.
 
 Use a private PostgreSQL database with a role that can create and read or write `nac_quiz_results`. The app creates the table when it first connects. Open **Results log** from Home and unlock it with the separate log password to view or export the history. Results include the participant name, staff ID when selected from the org chart, quiz, attempt type, score, and UTC timestamp. History starts when the database is configured, and entries use self-reported identities.
 
@@ -39,7 +40,7 @@ python -m unittest discover -s tests -v
 
 The local roster manager is disabled by default.
 
-To test the results log locally, set `NAC_RESULTS_SQLITE_PATH` to a local file ending in `.sqlite3` and set `NAC_RESULTS_PASSWORD`. These settings can go in `.streamlit/secrets.toml` or the environment. Use PostgreSQL for the hosted app so history survives redeploys.
+To test the results log locally, set `NAC_RESULTS_SQLITE_PATH` to a local file ending in `.sqlite3`. This setting can go in `.streamlit/secrets.toml` or the environment. Use PostgreSQL for the hosted app so history survives redeploys.
 
 The staff directory, org chart, and all three quizzes use the Paylocity roster in `data/staff.csv`. The org chart uses `data/reporting.json` to link staff IDs to their managers. Select a person’s row to expand their reporting branch in place. **Find staff** searches the roster and can jump from a result to that person’s chart entry.
 

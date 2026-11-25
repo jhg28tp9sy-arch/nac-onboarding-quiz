@@ -926,7 +926,7 @@ def quiz(mode, staff, photo_root, store):
                               on_click=submit_and_advance, args=(attempt, index))
                 elif mastery:
                     name_key, role_key = f"exam-name-{index}", f"exam-role-{index}"
-                    with st.form(f"exam-{index}", clear_on_submit=True, border=False):
+                    with st.form(f"exam-{index}", clear_on_submit=True, enter_to_submit=False, border=False):
                         st.text_input("Name", max_chars=150, autocomplete="off", key=name_key)
                         st.text_input("Job title", max_chars=200, autocomplete="off", key=role_key)
                         st.form_submit_button("Submit exam" if index + 1 == total else "Save and continue",

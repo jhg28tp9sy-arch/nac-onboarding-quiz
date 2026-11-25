@@ -8,6 +8,7 @@ from pathlib import Path
 
 import streamlit as st
 from PIL import Image
+from streamlit import runtime
 from streamlit.errors import StreamlitSecretNotFoundError
 
 from utils.quiz import Attempt, FIELDS, Question, QuizResult, make_questions
@@ -95,14 +96,14 @@ def require_app_password():
 
 
 @st.cache_data(show_spinner=False, max_entries=256)
-def portrait_source(path, modified_ns, thumbnail_width):
+def portrait_bytes(path, modified_ns, thumbnail_width):
     image = portrait(path)
     if image is None:
         return None
     image.thumbnail((thumbnail_width, thumbnail_width * 5 // 4))
     buffer = io.BytesIO()
     image.save(buffer, format="JPEG", quality=80, optimize=True)
-    return f"data:image/jpeg;base64,{base64.b64encode(buffer.getvalue()).decode()}"
+    return buffer.getvalue()
 
 
 def roster_photo(record, root, *, thumbnail_width):
@@ -113,9 +114,13 @@ def roster_photo(record, root, *, thumbnail_width):
     valid = (filename.name == record.photo and path.parent == root.resolve()
              and filename.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"})
     try:
-        return portrait_source(str(path), path.stat().st_mtime_ns, thumbnail_width) if valid else None
+        return portrait_bytes(str(path), path.stat().st_mtime_ns, thumbnail_width) if valid else None
     except OSError:
         return None
+
+
+def inline_portrait_url(image):
+    return f"data:image/jpeg;base64,{base64.b64encode(image).decode()}"
 
 
 def display_quiz_photo(record, root):
@@ -124,14 +129,20 @@ def display_quiz_photo(record, root):
         st.html('<div class="nac-placeholder">Photo unavailable</div>')
     else:
         st.html(f'<img class="nac-quiz-portrait" alt="Staff portrait" width="360" height="450" '
-                f'src="{image}">')
+                f'src="{inline_portrait_url(image)}">')
     return image is not None
 
 
-def thumbnail_markup(record, photo_root, width=144):
-    image = roster_photo(record, photo_root, thumbnail_width=width) if width else None
+def thumbnail_markup(record, photo_root, *, in_chart=False):
+    image = roster_photo(record, photo_root, thumbnail_width=112 if in_chart else 144)
     if image:
-        return f'<img alt="" loading="lazy" decoding="async" src="{image}">'
+        if in_chart:
+            # Use the same media store as st.image. Keep URLs relative for Streamlit's subpath hosting.
+            media = runtime.get_instance().media_file_mgr
+            source = media.add(image, "image/jpeg", f"org-chart:{record.id}").lstrip("/")
+        else:
+            source = inline_portrait_url(image)
+        return f'<img alt="" loading="lazy" decoding="async" src="{html.escape(source, quote=True)}">'
     parts = record.name.split()
     initials = html.escape((parts[0][0] + parts[-1][0] if len(parts) > 1 else parts[0][0]).upper())
     return f'<span class="nac-person-placeholder" aria-hidden="true">{initials}</span>'
@@ -287,7 +298,7 @@ def jump_to_chart_person():
     st.session_state.chart_focus = st.session_state.chart_person_picker
 
 
-def report_branch(record, parent, children, photo_root, ancestors, *, show_portrait=False):
+def report_branch(record, parent, children, photo_root, ancestors):
     name, title, team, manager = map(html.escape,
                                     (record.name, record.role, record.department, parent.name))
     ancestors = ancestors | {record.id}
@@ -299,7 +310,7 @@ def report_branch(record, parent, children, photo_root, ancestors, *, show_portr
                    f'<div class="nac-org-children">{nested}</div>')
     return (
         f'<details class="nac-org-node" id="staff-{html.escape(record.id)}">'
-        f'<summary class="nac-org-summary">{thumbnail_markup(record, photo_root, width=112 if show_portrait else 0)}'
+        f'<summary class="nac-org-summary">{thumbnail_markup(record, photo_root, in_chart=True)}'
         f'<span><strong>{name}</strong><small>{title}</small></span>'
         '<span class="nac-org-chevron" aria-hidden="true"></span></summary>'
         f'<div class="nac-org-body"><p>{team}</p><p>Reports to {manager}</p>{reports}</div></details>'
@@ -365,7 +376,7 @@ def org_chart(active, photo_root):
         if direct:
             st.html(f'<p class="nac-chart-branch">Direct reports · {len(direct)}</p>')
             st.caption("Select a name to expand their department, supervisor, and direct reports.")
-            branches = "".join(report_branch(record, person, children, photo_root, {person.id}, show_portrait=True)
+            branches = "".join(report_branch(record, person, children, photo_root, {person.id})
                                for record in direct)
             st.html(f'<div class="nac-org-tree">{branches}</div>')
         else:

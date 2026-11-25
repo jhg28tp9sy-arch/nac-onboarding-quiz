@@ -1,11 +1,12 @@
 import html
 import unittest
+from collections import namedtuple
 from pathlib import Path
 from unittest.mock import patch
 
 from streamlit.testing.v1 import AppTest
 
-from utils.quiz import make_questions
+from utils.quiz import Attempt, make_questions
 
 APP = Path(__file__).resolve().parents[1] / "app.py"
 
@@ -247,6 +248,34 @@ class AppTests(unittest.TestCase):
         self.assertTrue(any(person.name in item.value for item in self.app.html))
         self.assertTrue(any(item.value == "Review only" for item in self.app.caption))
         self.assertEqual(len(self.app.session_state["quiz_results"]["mastery_exam"][0].rows), 2)
+
+    def test_mastery_starts_with_the_previous_quiz_module_loaded(self):
+        legacy_question = namedtuple("LegacyQuestion", ["staff", "options"])
+
+        def legacy_questions(*args, **kwargs):
+            questions = make_questions(*args, **kwargs)
+            return [legacy_question(question.staff, question.options) for question in
+                    (next(q for q in questions if q.review_only), next(q for q in questions if not q.review_only))]
+
+        def legacy_attempt(questions, *, retry):
+            attempt = Attempt(questions, retry=retry)
+            del attempt.review_questions
+            return attempt
+
+        with patch.multiple("utils.quiz", Attempt=legacy_attempt, make_questions=legacy_questions):
+            self.click("Open Mastery Exam")
+            self.click("Start exam")
+            attempt = self.app.session_state["attempts"]["mastery_exam"]
+            question, = attempt.questions
+            pending_review, = attempt.review_questions
+            self.app.text_input[0].set_value(question.staff.name)
+            self.app.text_input[1].set_value(question.staff.role)
+            self.click("Submit exam")
+            self.assertEqual([metric.value for metric in self.app.metric], ["2 / 2", "1 / 1", "1 / 1"])
+            self.app.radio[0].set_value("Review-only profiles").run()
+            self.assertTrue(any(pending_review.staff.name in item.value for item in self.app.html))
+            self.click("Restart quiz")
+            self.assertTrue(any(button.label == "Submit exam" for button in self.app.button))
 
     def test_name_recall(self):
         self.click("Open Name Recall")

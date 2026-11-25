@@ -10,8 +10,8 @@ import streamlit as st
 from streamlit.errors import StreamlitSecretNotFoundError
 
 from utils.certificate import certificate_pdf
-from utils.quiz import Attempt, FIELDS, QuizResult, make_questions
-from utils.roster import csv_text, load, portrait
+from utils.quiz import Attempt, FIELDS, Question, QuizResult, make_questions
+from utils.roster import csv_text, load, photo_path, portrait
 from utils.scoring import grade, normalize, spreadsheet_value
 
 ROOT = Path(__file__).resolve().parent
@@ -614,29 +614,45 @@ def quiz(mode, staff, photo_root):
     key = mode
     mastery = mode == "mastery_exam"
 
+    def prepare_questions(ids=None):
+        # A live Streamlit worker can rerun this script with the previous quiz module still loaded.
+        quiz_staff = staff
+        if mode == "name_recall" and not hasattr(Question, "review_only"):
+            quiz_staff = [person for person in staff if photo_path(person, photo_root) is not None]
+        available = make_questions(mode, quiz_staff, photo_root, ids=ids)
+        if not mastery:
+            return available, []
+        questions, review_questions = [], []
+        for question in available:
+            review_only = getattr(question, "review_only", None)
+            if review_only is None:
+                review_only = photo_path(question.staff, photo_root) is None
+            (review_questions if review_only else questions).append(question)
+        review_questions.sort(key=lambda question: question.staff.name.casefold())
+        return questions, review_questions
+
     def restart(ids=None):
-        available = make_questions(mode, staff, photo_root, ids=ids)
-        if not available:
+        questions, review_questions = prepare_questions(ids)
+        if not questions and not review_questions:
             st.session_state.attempts[key] = None
             return
-        review_questions = sorted((question for question in available if question.review_only),
-                                  key=lambda question: question.staff.name.casefold())
-        questions = [question for question in available if not question.review_only]
-        st.session_state.attempts[key] = Attempt(questions, retry=ids is not None, review_questions=review_questions)
+        attempt = Attempt(questions, retry=ids is not None)
+        attempt.review_questions = review_questions
+        st.session_state.attempts[key] = attempt
 
     attempt = st.session_state.attempts.get(key)
     if attempt is None or attempt.finished:
         page_heading(title)
     if attempt is None:
-        available = make_questions(mode, staff, photo_root)
+        questions, review_questions = prepare_questions()
         with st.container(border=mastery, key="mastery_intro" if mastery else "quiz_intro"):
-            if not available:
+            if not questions and not review_questions:
                 st.info("Name Recall opens when eligible staff have portraits." if mode == "name_recall"
                         else "This quiz opens when the roster includes eligible staff.")
                 return
             if mastery:
-                review_count = sum(question.review_only for question in available)
-                portrait_count = len(available) - review_count
+                review_count = len(review_questions)
+                portrait_count = len(questions)
                 st.html(f'<p class="nac-mastery-count"><strong>{portrait_count}</strong> portrait questions</p>')
                 if portrait_count:
                     st.write("Enter each person’s full name and job title. Scores and answers appear after submission.")
@@ -644,7 +660,7 @@ def quiz(mode, staff, photo_root):
                     st.caption(f"{review_count} staff profiles without portraits appear in the answer key for review.")
                 start_label = "Start exam" if portrait_count else "Review staff"
             else:
-                st.markdown(f"**{level} · {len(available)} questions**")
+                st.markdown(f"**{level} · {len(questions)} questions**")
                 st.html(f'<p class="nac-intro">{html.escape(description)}</p>')
                 st.write("Get feedback after each answer, then review and retry missed questions.")
                 start_label = "Start quiz"

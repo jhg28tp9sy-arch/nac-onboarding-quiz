@@ -7,6 +7,7 @@ import os
 import unicodedata
 from inspect import signature
 from pathlib import Path
+from uuid import uuid4
 
 import streamlit as st
 from PIL import Image
@@ -14,6 +15,7 @@ from streamlit import runtime
 from streamlit.errors import StreamlitSecretNotFoundError
 
 from utils.quiz import Attempt, FIELDS, Question, QuizResult, make_questions
+from utils.results_log import COLUMNS, Learner, LoggedResult, ResultsStore, ResultsStoreError
 from utils.roster import csv_text, load, photo_path, portrait
 from utils.scoring import grade, normalize, spreadsheet_value
 
@@ -37,6 +39,8 @@ st.session_state.setdefault("quiz_results", {})
 
 
 def go(page):
+    if page != "directory":
+        st.session_state.pop("choose_learner_for", None)
     st.session_state.page = page
 
 
@@ -65,6 +69,14 @@ def brand():
     wordmark = brand_image()
     st.html('<div class="nac-brand"><img alt="National Ability Center" '
             f'src="data:image/webp;base64,{wordmark}"><span>Employee onboarding</span></div>')
+
+
+def private_setting(key):
+    try:
+        value = st.secrets.get(key)
+    except StreamlitSecretNotFoundError:
+        value = None
+    return value or os.getenv(key)
 
 
 def require_app_password():
@@ -193,9 +205,43 @@ def home():
                 st.button(action, key=page, width="stretch", on_click=go, args=(page,),
                           type="primary" if page == "role_recall" else "secondary")
     with st.container(key="home_utilities", horizontal=True):
+        st.button("Results log", on_click=go, args=("results_log",))
         if os.getenv("NAC_LOCAL_ADMIN") == "1":
             st.button("Roster manager", on_click=go, args=("admin",))
         st.button("Sign out", type="tertiary", on_click=st.session_state.clear)
+
+
+def set_learner(name, staff_id=None):
+    st.session_state.quiz_learner = Learner(name, staff_id)
+    if mode := st.session_state.pop("choose_learner_for", None):
+        go(mode)
+
+
+def choose_learner_profile(mode):
+    st.session_state.choose_learner_for = mode
+    st.session_state.directory_view = "Org chart"
+    go("directory")
+
+
+def cancel_learner_selection():
+    go(st.session_state.pop("choose_learner_for", "home"))
+
+
+def learner_form(mode, store):
+    with st.container(border=True, key="learner_form"):
+        st.subheader("Who’s taking this quiz?")
+        st.caption("Your name and score go into the private results log." if store else
+                   "Your name and score are available during this browser session.")
+        st.button("Choose from org chart", width="stretch", on_click=choose_learner_profile, args=(mode,))
+        with st.form("learner_name", border=False):
+            first = st.text_input("First name", max_chars=48, autocomplete="given-name")
+            last = st.text_input("Last name", max_chars=48, autocomplete="family-name")
+            submitted = st.form_submit_button("Use this name", type="primary", width="stretch")
+        if submitted:
+            if first.strip() and last.strip():
+                set_learner(" ".join(f"{first} {last}".split()))
+                st.rerun()
+            st.error("Enter your first and last name.")
 
 
 def page_slice(items, key, size=12):
@@ -407,6 +453,9 @@ def org_chart(active, photo_root):
     with st.container(key="org_chart"):
         with st.container(border=True, key=f"org_person_{person.id}"):
             person_card(person, photo_root)
+            if st.session_state.get("choose_learner_for"):
+                st.button(f"Take quiz as {person.name}", type="primary", width="stretch",
+                          on_click=set_learner, args=(person.name, person.id))
             issue = chart["unlinked"].get(person.id)
             if parent:
                 st.caption(f"Reports to {parent.name}")
@@ -426,6 +475,9 @@ def org_chart(active, photo_root):
 
 def directory(staff, photo_root):
     page_heading("Staff Directory")
+    if st.session_state.get("choose_learner_for"):
+        st.caption("Find your profile, then select the button below your name to return to the quiz.")
+        st.button("Cancel profile selection", on_click=cancel_learner_selection)
     active = [record for record in staff if record.active]
     if not active:
         st.info("The staff directory will open when the approved roster is added.")
@@ -481,6 +533,78 @@ def score_attempt(mode, attempt, staff):
     return QuizResult(attempt, rows, missed)
 
 
+def logged_result(mode, result):
+    attempt = result.attempt
+    learner = getattr(attempt, "learner", None)
+    if learner is None:
+        return None
+    answered = sum(bool(answer) for answer in attempt.answers.values())
+    mastery = mode == "mastery_exam"
+    names = sum(row["name_status"] == "Correct" for row in result.rows) if mastery else None
+    titles = sum(row["role_status"] == "Correct" for row in result.rows) if mastery else None
+    score = names + titles if mastery else answered - len(result.missed)
+    status = "Ended early" if getattr(attempt, "ended_early", False) else "Completed" if answered else "Review only"
+    return LoggedResult(attempt.log_id, learner.name, learner.staff_id, PAGES[mode][0],
+                        "Missed questions" if getattr(attempt, "retry", None) else "Full quiz",
+                        status, result.completed_at.isoformat(timespec="microseconds"), answered,
+                        len(attempt.questions), score, answered * (2 if mastery else 1), names, titles)
+
+
+def save_pending_results(store, pending):
+    try:
+        store.save(pending.values())
+    except ResultsStoreError:
+        return
+    pending.clear()
+
+
+def results_log(store):
+    page_heading("Results log")
+    password = private_setting("NAC_RESULTS_PASSWORD")
+    if not isinstance(password, str) or not password.strip() or not store:
+        st.info("The private results log is waiting for administrator setup.")
+        return
+
+    marker = hmac.digest(password.encode(), b"nac-connect-results-log", "sha256")
+    access = st.session_state.get("results_access", b"")
+    if not hmac.compare_digest(marker, access):
+        with st.form("results_log_sign_in", border=True, clear_on_submit=True):
+            supplied = st.text_input("Results log password", type="password", max_chars=256,
+                                     autocomplete="current-password")
+            submitted = st.form_submit_button("Unlock results log", type="primary", width="stretch")
+        if submitted:
+            if hmac.compare_digest(supplied.encode(), password.encode()):
+                st.session_state.results_access = marker
+                st.rerun()
+            st.error("Incorrect results log password.")
+        return
+
+    st.button("Lock results log", on_click=set_page, args=("results_access", b""))
+    try:
+        entries = store.read()
+    except ResultsStoreError:
+        st.error("The results database could not be reached. Try again in a moment.")
+        st.button("Retry loading results")
+        return
+    if not entries:
+        st.info("Results will appear here after the first named attempt ends.")
+        return
+    labels = {
+        "participant": "Participant", "quiz": "Quiz", "result": "Score", "status": "Status",
+        "attempt_type": "Attempt type",
+        "completed_at_utc": "Recorded at (UTC)", "questions_answered": "Answered", "quiz_questions": "Questions",
+        "names_correct": "Names correct", "titles_correct": "Titles correct", "staff_id": "Staff ID",
+    }
+    rows = [dict(zip(COLUMNS, entry)) for entry in entries]
+    st.caption(f"{len(rows)} {'attempt' if len(rows) == 1 else 'attempts'} recorded. Participant names are self-reported.")
+    display_rows = [{**row, "result": f"{row['score']} / {row['possible']}" if row["possible"] else "—"}
+                    for row in rows]
+    st.dataframe(display_rows, width="stretch", hide_index=True, column_order=list(labels), column_config=labels)
+    csv_rows = ({key: spreadsheet_value(value) for key, value in row.items()} for row in rows)
+    st.download_button("Download results log CSV", csv_text(COLUMNS, csv_rows), "nac-results-log.csv", "text/csv",
+                       on_click="ignore")
+
+
 def quiz_history(photo_root):
     page_heading("Quiz history")
     st.caption("Results are available while you stay signed in to this browser session.")
@@ -519,6 +643,9 @@ def results(mode, photo_root, restart=None):
     result = history[selected]
     attempt, rows, missed = result.attempt, result.rows, result.missed
     ended_early = getattr(attempt, "ended_early", False)
+    learner = getattr(attempt, "learner", None)
+    recorded = result.completed_at.strftime("%b %d, %Y at %H:%M UTC")
+    st.caption(f"{learner.name} · {recorded}" if learner else recorded)
 
     total = sum(bool(answer) for answer in attempt.answers.values())
     if ended_early:
@@ -538,7 +665,7 @@ def results(mode, photo_root, restart=None):
         name_metric.metric("Name recall", f"{name_score} / {total}")
         role_metric.metric("Role recall", f"{role_score} / {total}")
         if any("Review" in (row["name_status"], row["role_status"]) for row in rows):
-            st.info("Answers marked Review need manual confirmation and have not earned credit.")
+            st.info("Answers marked Needs review are flagged for manual confirmation.")
     else:
         score = f"{total - len(missed)} / {total}"
         with st.container(key="result_metrics"):
@@ -565,7 +692,7 @@ def results(mode, photo_root, restart=None):
                                width="stretch", on_click="ignore")
 
     if total and not ended_early and not missed and getattr(attempt, "retry", None) is False:
-        show_certificate(mode, selected + 1, score, result.completed_at, scope)
+        show_certificate(mode, selected + 1, score, result.completed_at, scope, learner.name if learner else "")
 
     st.subheader("Photographic answer key" if mastery else "Review answers")
     review_key = f"{scope}-{selected}-review"
@@ -594,21 +721,22 @@ def results(mode, photo_root, restart=None):
                     continue
                 if mastery:
                     details = [
-                        (f"Name · {row['name_status']}", row["submitted_name"] or "Blank"),
-                        (f"Job title · {row['role_status']}", row["submitted_role"] or "Blank"),
+                        ("Name you entered", row["submitted_name"] or "Blank", row["name_status"]),
+                        ("Job title you entered", row["submitted_role"] or "Blank", row["role_status"]),
                     ]
                 else:
-                    details = [
-                        (f"Your answer · {row['status']}", row["submitted_answer"] or "—"),
-                        ("Correct answer", row["correct_answer"]),
-                    ]
-                review_markup = "".join(f"<dt>{html.escape(label)}</dt><dd>{html.escape(value)}</dd>"
-                                        for label, value in details)
+                    details = [("Your answer", row["submitted_answer"], row["status"])]
+                    if row["status"] != "Correct":
+                        details.append(("Correct answer", row["correct_answer"], ""))
+                review_markup = "".join(
+                    f'<div><dt>{html.escape(label)}{answer_status(status) if status else ""}</dt>'
+                    f'<dd>{html.escape(value)}</dd></div>' for label, value, status in details
+                )
                 st.html(f'<dl class="nac-review">{review_markup}</dl>')
     page_controls(page_key, page, pages)
 
 
-def show_certificate(mode, attempt_number, score, completed_at, scope):
+def show_certificate(mode, attempt_number, score, completed_at, scope, learner_name):
     from utils.print_certificate import certificate_pdf
 
     awarded = completed_at.strftime("%b %d, %Y at %H:%M:%S %Z")
@@ -618,11 +746,11 @@ def show_certificate(mode, attempt_number, score, completed_at, scope):
         st.subheader("Completion certificate")
         st.caption(f"Awarded {awarded}")
         with st.form(f"{scope}-{attempt_number}-certificate-name", border=False):
-            learner = st.text_input("Name on certificate (optional)", value=names.get(certificate_key, ""),
+            learner = st.text_input("Name on certificate (optional)", value=names.get(certificate_key, learner_name),
                                     max_chars=100, autocomplete="off")
             if st.form_submit_button("Apply name"):
                 names[certificate_key] = learner.strip()
-        recipient = names.get(certificate_key, "")
+        recipient = names.get(certificate_key, learner_name)
         if recipient:
             st.html(f'<p class="nac-certificate-recipient">PDF prepared for {html.escape(recipient)}</p>')
         pdf = certificate_pdf(title=PAGES[mode][0], attempt_number=attempt_number, score=score,
@@ -674,7 +802,7 @@ def quiz_options(mode, attempt, restart):
         st.rerun()
 
 
-def quiz(mode, staff, photo_root):
+def quiz(mode, staff, photo_root, store):
     title, level, description = PAGES[mode]
     key = mode
     mastery = mode == "mastery_exam"
@@ -697,11 +825,14 @@ def quiz(mode, staff, photo_root):
         return questions, review_questions
 
     def start_attempt(questions, review_questions, *, retry=False):
-        if not questions and not review_questions:
+        learner = st.session_state.get("quiz_learner")
+        if not learner or (not questions and not review_questions):
             st.session_state.attempts[key] = None
             return
         attempt = Attempt(questions, retry=retry)
         attempt.review_questions = review_questions
+        attempt.learner = learner
+        attempt.log_id = uuid4().hex
         st.session_state.attempts[key] = attempt
 
     def restart(ids=None):
@@ -710,8 +841,24 @@ def quiz(mode, staff, photo_root):
     attempt = st.session_state.attempts.get(key)
     if attempt is None or attempt.finished:
         page_heading(title)
+    if attempt is not None and attempt.finished:
+        results(mode, photo_root, restart)
+        return
+    learner = getattr(attempt, "learner", None) or st.session_state.get("quiz_learner")
+    if learner is None:
+        if attempt is not None:
+            page_heading(title)
+        learner_form(mode, store)
+        return
+    if attempt is not None and getattr(attempt, "learner", None) is None:
+        # Attach a learner to an in-progress attempt created before results logging was introduced.
+        attempt.learner = learner
+        attempt.log_id = uuid4().hex
     if attempt is None:
         questions, review_questions = prepare_questions()
+        with st.container(key="quiz_learner"):
+            st.caption(f"Taking this quiz as {learner.name}")
+            st.button("Change quiz participant", on_click=set_page, args=("quiz_learner", None))
         with st.container(border=True, key="mastery_intro" if mastery else "quiz_intro"):
             if not questions and not review_questions:
                 st.info("Name Recall opens when eligible staff have portraits." if mode == "name_recall"
@@ -735,10 +882,6 @@ def quiz(mode, staff, photo_root):
             st.button(start_label, type="primary", width="stretch", on_click=start_attempt,
                       args=(questions, review_questions))
         return
-    if attempt.finished:
-        results(mode, photo_root, restart)
-        return
-
     index = attempt.index
     question = attempt.questions[index]
     total = len(attempt.questions)
@@ -802,17 +945,22 @@ def quiz(mode, staff, photo_root):
         quiz_options(mode, attempt, restart)
 
 
+def answer_status(status):
+    tone, label = {"Correct": ("correct", "Correct"), "Incorrect": ("incorrect", "Incorrect"),
+                   "Review": ("review", "Needs review")}[status]
+    return f'<span class="nac-answer-status" data-outcome="{tone}">{label}</span>'
+
+
 def quiz_feedback(mode, question, answer):
+    expected = getattr(question.staff, FIELDS[mode])
+    correct = score_choice(mode, question, answer)
+    status = "Correct" if correct else "Incorrect"
+    context = question.staff.department if mode == "role_recall" else f"{question.staff.role} · {question.staff.department}"
+    choice = "" if correct else f'<p>Selected <span>{html.escape(answer)}</span></p>'
     with st.container(key="quiz_feedback"):
-        if score_choice(mode, question, answer):
-            st.success("Correct.")
-        else:
-            expected = getattr(question.staff, FIELDS[mode])
-            st.error(f"The correct answer is {expected}.")
-            st.caption(f"You chose {answer}.")
-        context = (question.staff.department if mode == "role_recall"
-                   else f"{question.staff.role} · {question.staff.department}")
-        st.html(f'<p class="nac-feedback">{html.escape(context)}</p>')
+        st.html(f'<div class="nac-feedback" role="status" aria-atomic="true" data-outcome="{status.lower()}">'
+                f'{answer_status(status)}<strong>{html.escape(expected)}</strong>'
+                f'<p>{html.escape(context)}</p>{choice}</div>')
 
 
 @st.cache_data(show_spinner=False, max_entries=8)
@@ -822,6 +970,9 @@ def read_roster(path, photo_root, roster_mtime, photos_mtime):
 
 require_app_password()
 
+database_url = private_setting("NAC_RESULTS_DATABASE_URL")
+sqlite_path = private_setting("NAC_RESULTS_SQLITE_PATH")
+store = ResultsStore(database_url, sqlite_path) if database_url or sqlite_path else None
 page = st.session_state.page
 current_attempt = st.session_state.attempts.get(page)
 if current_attempt is None or current_attempt.finished:
@@ -844,16 +995,30 @@ except (OSError, UnicodeError):
 if errors:
     st.warning("The roster needs attention. Contact the roster administrator.")
     staff = []
+pending = st.session_state.setdefault("pending_results", {})
+new_results = False
 for mode, attempt in st.session_state.attempts.items():
     if attempt is not None and attempt.finished:
         history = st.session_state.quiz_results.setdefault(mode, [])
         if not history or history[-1].attempt is not attempt:
-            history.append(score_attempt(mode, attempt, staff))
+            result = score_attempt(mode, attempt, staff)
+            history.append(result)
+            if store and (entry := logged_result(mode, result)):
+                pending[entry.attempt_id] = entry
+                new_results = True
+if store and pending:
+    if new_results or st.session_state.pop("retry_result_log", False):
+        save_pending_results(store, pending)
+    if pending:
+        st.warning("A score is waiting to be saved to the results log. Keep this session open and retry saving.")
+        st.button("Retry saving results", on_click=set_page, args=("retry_result_log", True))
 if page == "directory":
     directory(staff, photo_root)
 elif page == "quiz_history":
     quiz_history(photo_root)
+elif page == "results_log":
+    results_log(store)
 elif page in PAGES:
-    quiz(page, staff, photo_root)
+    quiz(page, staff, photo_root, store)
 else:
     home()

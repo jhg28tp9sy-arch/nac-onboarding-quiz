@@ -1,4 +1,5 @@
 import html
+import tempfile
 import unittest
 from collections import namedtuple
 from pathlib import Path
@@ -7,6 +8,7 @@ from unittest.mock import patch
 from streamlit.testing.v1 import AppTest
 
 from utils.quiz import Attempt, make_questions
+from utils.results_log import COLUMNS, Learner, ResultsStore
 
 APP = Path(__file__).resolve().parents[1] / "app.py"
 
@@ -20,6 +22,7 @@ class AppTests(unittest.TestCase):
         self.app.run()
         self.app.text_input[0].set_value("example-test-password")
         self.click("Sign in")
+        self.app.session_state["quiz_learner"] = Learner("Jordan Avery")
         self.addCleanup(lambda: self.assertFalse(self.app.exception))
 
     def click(self, label):
@@ -110,6 +113,58 @@ class AppTests(unittest.TestCase):
         self.app.text_input(key="chart_query").set_value("zzzzzz").run()
         self.assertTrue(any("No matching names" in item.value for item in self.app.caption))
 
+    def test_learner_can_choose_their_org_chart_profile(self):
+        self.app.session_state["quiz_learner"] = None
+        self.click("Open Name Recall")
+        self.click("Choose from org chart")
+        self.app.text_input(key="chart_query").set_value("brad col").run()
+        self.app.button(key="chart_match_001").click().run()
+        self.click("Take quiz as Colton Bradley")
+        self.click("Start quiz")
+        attempt = self.app.session_state["attempts"]["name_recall"]
+        self.assertEqual(attempt.learner, Learner("Colton Bradley", "001"))
+
+    def test_named_results_persist_and_require_a_separate_password(self):
+        folder = self.enterContext(tempfile.TemporaryDirectory())
+        database = str(Path(folder) / "results.sqlite3")
+        self.app.secrets["NAC_RESULTS_SQLITE_PATH"] = database
+        self.app.secrets["NAC_RESULTS_PASSWORD"] = "private-log-test-password"
+        self.app.session_state["quiz_learner"] = None
+        self.click("Open Role Recall")
+        self.app.text_input[0].set_value("  Riley ")
+        self.click("Use this name")
+        self.assertEqual(self.app.error[0].value, "Enter your first and last name.")
+        self.app.text_input[1].set_value(" Morgan ")
+        self.click("Use this name")
+        self.click("Start quiz")
+        attempt = self.app.session_state["attempts"]["role_recall"]
+        self.click(attempt.questions[0].staff.role)
+        self.click("Quiz options")
+        self.click("End quiz")
+        self.click("Confirm end")
+        self.app.run()
+        saved, = ResultsStore(sqlite_path=database).read()
+        row = dict(zip(COLUMNS, saved))
+        self.assertEqual((row["participant"], row["status"], row["score"], row["possible"]),
+                         ("Riley Morgan", "Ended early", 1, 1))
+
+        self.click("Home")
+        self.click("Sign out")
+        self.app.text_input[0].set_value("example-test-password")
+        self.click("Sign in")
+        self.click("Results log")
+        self.assertFalse(self.app.dataframe)
+        self.app.text_input[0].set_value("example-test-password")
+        self.click("Unlock results log")
+        self.assertFalse(self.app.dataframe)
+        self.app.text_input[0].set_value("private-log-test-password")
+        self.click("Unlock results log")
+        self.assertEqual(self.app.dataframe[0].value.iloc[0]["participant"], "Riley Morgan")
+        self.assertTrue(any(button.proto.label == "Download results log CSV"
+                            for button in self.app.get("download_button")))
+        self.click("Lock results log")
+        self.assertFalse(self.app.dataframe)
+
     def test_role_recall_feedback_and_retry(self):
         self.click("Open Role Recall")
         self.click("Start quiz")
@@ -118,7 +173,10 @@ class AppTests(unittest.TestCase):
             correct = question.staff.role
             wrong = next(option for option in question.options if option != correct)
             self.click(wrong if index == 0 else correct)
-            self.assertTrue(self.app.error if index == 0 else self.app.success)
+            feedback = next(item.value for item in self.app.html if 'class="nac-feedback"' in item.value)
+            outcome = "incorrect" if index == 0 else "correct"
+            self.assertIn(f'data-outcome="{outcome}"', feedback)
+            self.assertIn(html.escape(correct), feedback)
             self.click("See results" if index + 1 == len(attempt.questions) else "Next question")
         self.assertEqual(self.app.metric[0].value, "5 / 6")
         self.assertFalse(any(item.value == "Completion certificate" for item in self.app.subheader))
@@ -144,7 +202,7 @@ class AppTests(unittest.TestCase):
         self.app.selectbox[0].set_value(0).run()
         self.assertEqual(self.app.metric[0].value, "5 / 6")
         self.assertEqual(self.app.radio[0].value, "Missed or flagged")
-        self.assertTrue(any("Your answer · Incorrect" in item.value for item in self.app.html))
+        self.assertTrue(any('data-outcome="incorrect">Incorrect' in item.value for item in self.app.html))
         self.assertEqual(len(self.app.session_state["quiz_results"]["role_recall"]), 2)
 
         self.click("Restart quiz")

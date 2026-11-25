@@ -9,7 +9,7 @@ from pathlib import Path
 import streamlit as st
 from streamlit.errors import StreamlitSecretNotFoundError
 
-from utils.certificate import certificate_pdf
+from utils.print_certificate import certificate_pdf
 from utils.quiz import Attempt, FIELDS, Question, QuizResult, make_questions
 from utils.roster import csv_text, load, photo_path, portrait
 from utils.scoring import grade, normalize, spreadsheet_value

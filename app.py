@@ -12,6 +12,7 @@ from uuid import uuid4
 import streamlit as st
 from PIL import Image
 from streamlit import runtime
+from streamlit.components.v2 import component
 from streamlit.errors import StreamlitSecretNotFoundError
 
 from utils.quiz import Attempt, FIELDS, Question, QuizResult, make_questions
@@ -28,6 +29,7 @@ PAGES = {
 }
 STAFF_FILTERS = ("staff_query", "staff_department", "staff_sort", "staff_page")
 LIVE_SEARCH = {"type": "search", "live": "220ms"} if "live" in signature(st.text_input).parameters else {}
+browser_controls = component("nac_browser_controls", js=(ROOT / "assets/browser_controls.js").read_text(encoding="utf-8"))
 
 st.set_page_config(page_title="NAC Connect", page_icon=str(ROOT / "assets/logo.png"), layout="wide")
 stylesheet = (ROOT / "assets/nac.css").read_text(encoding="utf-8")
@@ -172,6 +174,67 @@ def person_card(record, photo_root):
     )
 
 
+def sync_browser_controls(staff):
+    active_ids = {person.id for person in staff if person.active}
+
+    def sync_study():
+        saved = st.session_state.nac_browser.study
+        if isinstance(saved, list):
+            st.session_state.study_ids = list(dict.fromkeys(
+                item for item in saved if isinstance(item, str) and item in active_ids
+            ))
+
+    def focus_chart():
+        target = st.session_state.nac_browser.focus
+        if (st.session_state.page == "directory" and st.session_state.get("directory_view") == "Org chart"
+                and isinstance(target, str) and target in active_ids):
+            select_chart_person(target)
+
+    browser_controls(key="nac_browser",
+                     data={"study": st.session_state.get("study_ids"),
+                           "edit": st.session_state.pop("study_edit", None)},
+                     on_study_change=sync_study, on_focus_change=focus_chart)
+
+
+def edit_study_list(person_id, save):
+    saved = list(st.session_state.get("study_ids", []))
+    if save and person_id not in saved:
+        saved.append(person_id)
+    elif not save and person_id in saved:
+        saved.remove(person_id)
+    st.session_state.study_ids = saved
+    st.session_state.study_edit = [person_id, save]
+
+
+def study_button(record, scope):
+    save = record.id not in st.session_state.get("study_ids", [])
+    label = f"Save {record.name}" if save else f"Remove {record.name} from study list"
+    st.button(label, key=f"study_{scope}_{record.id}", width="stretch",
+              on_click=edit_study_list, args=(record.id, save), disabled="study_ids" not in st.session_state)
+
+
+def study_list(staff, photo_root):
+    page_heading("My study list")
+    active = {record.id: record for record in staff if record.active}
+    saved = [active[person_id] for person_id in st.session_state.get("study_ids", []) if person_id in active]
+    if not saved:
+        st.info("Save people from the org chart or staff directory to review their faces, names, and roles here.")
+        st.button("Open Staff Directory", type="primary", on_click=go, args=("directory",))
+        return
+    st.caption("Saved in this browser.")
+    visible, page, pages = page_slice(saved, "study_page")
+    with st.container(key="directory_grid"):
+        for offset in range(0, len(visible), 3):
+            row = visible[offset:offset + 3]
+            for person, column in zip(row, st.columns(len(row))):
+                with column, st.container(border=True, key=f"profile_study_{person.id}"):
+                    person_card(person, photo_root)
+                    st.button(f"View {person.name} in org chart", key=f"study_chart_{person.id}", width="stretch",
+                              on_click=open_chart_person, args=(person.id,))
+                    study_button(person, "list")
+    page_controls("study_page", page, pages)
+
+
 def home():
     with st.container(key="home_intro"):
         intro, actions = st.columns([2.15, 1], vertical_alignment="center")
@@ -180,6 +243,7 @@ def home():
         with actions, st.container(key="study_card"):
             st.button("Open Staff Directory", key="directory", width="stretch",
                       type="primary", on_click=go, args=("directory",))
+            st.button("My study list", width="stretch", on_click=go, args=("study_list",))
             if st.session_state.quiz_results:
                 st.button("Quiz history", width="stretch", on_click=go, args=("quiz_history",))
 
@@ -330,6 +394,7 @@ def search_staff(active, photo_root):
                     person_card(record, photo_root)
                     st.button(f"View {record.name} in org chart", key=f"locate_{record.id}", width="stretch",
                               on_click=open_search_result, args=(record.id,))
+                    study_button(record, "directory")
     page_controls("staff_page", page, pages)
 
 
@@ -347,6 +412,13 @@ def read_chart(path, modified_ns):
 def select_chart_person(person_id):
     st.session_state.chart_focus = person_id
     st.session_state.chart_query = ""
+
+
+def open_chart_person(person_id):
+    st.session_state.pop("staff_search", None)
+    select_chart_person(person_id)
+    st.session_state.directory_view = "Org chart"
+    go("directory")
 
 
 def open_chart_match(person_id):
@@ -398,12 +470,15 @@ def report_branch(record, parent, children, photo_root, ancestors):
     if nested:
         reports = (f'<div class="nac-org-count">Direct reports · {len(direct)}</div>'
                    f'<div class="nac-org-children">{nested}</div>')
+    person_id = html.escape(record.id, quote=True)
     return (
-        f'<details class="nac-org-node" id="staff-{html.escape(record.id)}">'
+        f'<details class="nac-org-node" id="staff-{person_id}">'
         f'<summary class="nac-org-summary">{thumbnail_markup(record, photo_root, in_chart=True)}'
         f'<span><strong>{name}</strong><small>{title}</small></span>'
         '<span class="nac-org-chevron" aria-hidden="true"></span></summary>'
-        f'<div class="nac-org-body"><p>{team}</p><p>Reports to {manager}</p>{reports}</div></details>'
+        f'<div class="nac-org-body"><p>{team}</p><p>Reports to {manager}</p>'
+        f'<button type="button" class="nac-chart-focus" data-chart-focus="{person_id}" '
+        f'aria-label="Focus chart on {name}">Focus here</button>{reports}</div></details>'
     )
 
 
@@ -427,22 +502,20 @@ def org_chart(active, photo_root):
 
     person = staff[st.session_state.chart_focus]
     parent = staff.get(managers.get(person.id))
-    if parent or person.id != root:
-        with st.container(key="chart_navigation", horizontal=True):
-            if parent:
-                st.button(f"Back to {parent.name}", on_click=select_chart_person, args=(parent.id,))
-            if person.id != root and (parent is None or parent.id != root):
-                st.button("Top of chart", on_click=select_chart_person, args=(root,))
-
-    path = [person.name]
+    path = [person]
     seen = {person.id}
     node = parent
     while node and node.id not in seen:
-        path.append(node.name)
+        path.append(node)
         seen.add(node.id)
         node = staff.get(managers.get(node.id))
     if len(path) > 1:
-        st.html(f'<p class="nac-chart-path">{html.escape(" / ".join(reversed(path)))}</p>')
+        steps = "".join(f'<li><button type="button" data-chart-focus="{html.escape(record.id, quote=True)}">'
+                        f'{html.escape(record.name)}</button></li>' for record in reversed(path[1:]))
+        st.html(f'<nav class="nac-chart-path" aria-label="Reporting path"><ol>{steps}'
+                f'<li aria-current="page">{html.escape(person.name)}</li></ol></nav>')
+    if root not in seen:
+        st.button("Top of chart", on_click=select_chart_person, args=(root,))
 
     children = {}
     for employee in ordered:
@@ -453,6 +526,7 @@ def org_chart(active, photo_root):
     with st.container(key="org_chart"):
         with st.container(border=True, key=f"org_person_{person.id}"):
             person_card(person, photo_root)
+            study_button(person, "chart")
             if st.session_state.get("choose_learner_for"):
                 st.button(f"Take quiz as {person.name}", type="primary", width="stretch",
                           on_click=set_learner, args=(person.name, person.id))
@@ -737,6 +811,8 @@ def results(mode, photo_root, restart=None):
 
 
 def show_certificate(mode, attempt_number, score, completed_at, scope, learner_name):
+    import pypdfium2 as pdfium
+
     from utils.print_certificate import certificate_pdf
 
     awarded = completed_at.strftime("%b %d, %Y at %H:%M:%S %Z")
@@ -751,11 +827,24 @@ def show_certificate(mode, attempt_number, score, completed_at, scope, learner_n
             if st.form_submit_button("Apply name"):
                 names[certificate_key] = learner.strip()
         recipient = names.get(certificate_key, learner_name)
-        if recipient:
-            st.html(f'<p class="nac-certificate-recipient">PDF prepared for {html.escape(recipient)}</p>')
-        pdf = certificate_pdf(title=PAGES[mode][0], attempt_number=attempt_number, score=score,
-                              awarded=awarded, learner=recipient,
-                              wordmark=ROOT / "assets/nac-wordmark.png")
+        display_key = (mode, attempt_number, score, awarded, recipient)
+        cached = st.session_state.get("certificate_artwork")
+        if not cached or cached[0] != display_key:
+            pdf = certificate_pdf(title=PAGES[mode][0], attempt_number=attempt_number, score=score,
+                                  awarded=awarded, learner=recipient, wordmark=ROOT / "assets/nac-wordmark.png")
+            preview = io.BytesIO()
+            with pdfium.PdfDocument(pdf) as document:
+                bitmap = document[0].render(scale=5 / 3)
+                bitmap.to_pil().save(preview, format="PNG")
+            cached = (display_key, pdf, preview.getvalue())
+            st.session_state.certificate_artwork = cached
+        _, pdf, preview = cached
+        image_url = runtime.get_instance().media_file_mgr.add(preview, "image/png", "certificate-preview")
+        source = html.escape(image_url.lstrip("/"), quote=True)
+        with st.container(key="certificate_preview"):
+            st.html(f'<a class="nac-certificate-art" href="{source}" target="_blank" rel="noopener noreferrer">'
+                    f'<img src="{source}" alt="Completion certificate" width="1320" height="1020">'
+                    '<span>View full size</span></a>')
         st.download_button("Download certificate (PDF)", pdf, f"nac-{mode}-attempt-{attempt_number}-certificate.pdf",
                            "application/pdf", width="stretch", on_click="ignore")
 
@@ -888,10 +977,13 @@ def quiz(mode, staff, photo_root, store):
     answered = index in attempt.answers
     score_markup = ""
     graded_count = sum(bool(answer) for answer in attempt.answers.values())
-    if not mastery and graded_count:
-        score = sum(score_choice(mode, attempt.questions[i], answer[0])
-                    for i, answer in attempt.answers.items() if answer)
-        score_markup = f'<span role="status">Score {score}/{graded_count}</span>'
+    if not mastery:
+        if graded_count:
+            score = sum(score_choice(mode, attempt.questions[i], answer[0])
+                        for i, answer in attempt.answers.items() if answer)
+            score_markup = f'<span class="nac-quiz-score" role="status">Score {score}/{graded_count}</span>'
+        else:
+            score_markup = '<span class="nac-quiz-score" aria-hidden="true">Score 0/0</span>'
     with st.container(border=True, key="quiz_content"):
         with st.container(key="quiz_header"):
             label, navigation = st.columns([3, 1])
@@ -912,13 +1004,18 @@ def quiz(mode, staff, photo_root, store):
                         photo, prompt_column = st.columns([1, 2])
                         with photo:
                             has_photo = display_quiz_photo(question.staff, photo_root)
-                        name = ""
-                        if mode == "role_recall":
-                            name = (f'<h2 class="nac-heading nac-question-title">'
-                                    f'{html.escape(question.staff.name)}</h2>')
-                        if mode == "role_recall" or has_photo:
-                            prompt = "What is their job title?" if mode == "role_recall" else "Who is this?"
-                            prompt_column.html(f'<div class="nac-quiz-prompt">{name}<p class="nac-prompt">{prompt}</p></div>')
+                        name = (f'<h2 class="nac-heading nac-question-title">'
+                                f'{html.escape(question.staff.name)}</h2>')
+                        if answered and attempt.answers[index]:
+                            role = html.escape(question.staff.role)
+                            prompt_column.html(f'<div class="nac-quiz-prompt nac-answer-reveal" role="status">{name}'
+                                               f'<p class="nac-revealed-role">{role}</p></div>')
+                        elif mode == "role_recall":
+                            prompt_column.html(f'<div class="nac-quiz-prompt">{name}'
+                                               '<p class="nac-prompt">What is their job title?</p></div>')
+                        elif has_photo:
+                            prompt_column.html('<div class="nac-quiz-prompt">'
+                                               '<p class="nac-prompt">Who is this?</p></div>')
             with response:
                 if (mode != "role_recall" and not has_photo) or (not mastery and not question.options):
                     st.caption("This profile will appear in the answer review as an unscored item.")
@@ -938,9 +1035,10 @@ def quiz(mode, staff, photo_root, store):
                             st.button(option, key=f"option-{mode}-{index}-{option_index}", width="stretch",
                                       on_click=attempt.submit, args=(index, option))
                 else:
-                    quiz_feedback(mode, question, attempt.answers[index][0])
-                    st.button("See results" if index + 1 == total else "Next question", type="primary",
-                              width="stretch", on_click=attempt.advance, args=(index,))
+                    with st.container(key="quiz_reveal_controls"):
+                        quiz_feedback(mode, question, attempt.answers[index][0])
+                        st.button("See results" if index + 1 == total else "Next question", type="primary",
+                                  width="stretch", on_click=attempt.advance, args=(index,))
     if st.session_state.get("quiz_option"):
         quiz_options(mode, attempt, restart)
 
@@ -952,15 +1050,13 @@ def answer_status(status):
 
 
 def quiz_feedback(mode, question, answer):
-    expected = getattr(question.staff, FIELDS[mode])
     correct = score_choice(mode, question, answer)
     status = "Correct" if correct else "Incorrect"
-    context = question.staff.department if mode == "role_recall" else f"{question.staff.role} · {question.staff.department}"
+    department = html.escape(question.staff.department)
     choice = "" if correct else f'<p>Selected <span>{html.escape(answer)}</span></p>'
     with st.container(key="quiz_feedback"):
         st.html(f'<div class="nac-feedback" role="status" aria-atomic="true" data-outcome="{status.lower()}">'
-                f'{answer_status(status)}<strong>{html.escape(expected)}</strong>'
-                f'<p>{html.escape(context)}</p>{choice}</div>')
+                f'{answer_status(status)}<p>{department}</p>{choice}</div>')
 
 
 @st.cache_data(show_spinner=False, max_entries=8)
@@ -995,6 +1091,7 @@ except (OSError, UnicodeError):
 if errors:
     st.warning("The roster needs attention. Contact the roster administrator.")
     staff = []
+sync_browser_controls(staff)
 pending = st.session_state.setdefault("pending_results", {})
 new_results = False
 for mode, attempt in st.session_state.attempts.items():
@@ -1014,6 +1111,8 @@ if store and pending:
         st.button("Retry saving results", on_click=set_page, args=("retry_result_log", True))
 if page == "directory":
     directory(staff, photo_root)
+elif page == "study_list":
+    study_list(staff, photo_root)
 elif page == "quiz_history":
     quiz_history(photo_root)
 elif page == "results_log":

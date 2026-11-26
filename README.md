@@ -6,6 +6,8 @@ Before starting a quiz, select your staff profile from the org chart or enter yo
 
 Open **Quiz options** during any question to pause, restart, or end your current attempt. Pausing keeps your submitted answers and your place. Ending early saves a partial result when you have submitted answers.
 
+Expand a person in the org chart and select **Focus here** to see their branch. Select a name in the reporting path to move up the chart. Save people from the chart or staff directory to **My study list**. The list is saved in the current browser.
+
 ## Deploy to Streamlit Community Cloud
 
 Deploy from the GitHub repository `jhg28tp9sy-arch/nac-onboarding-quiz`, branch `main`, and main file path `app.py`. The app password controls access to the running Streamlit app. The public GitHub repository contains the roster and portraits.

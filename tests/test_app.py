@@ -23,6 +23,7 @@ class AppTests(unittest.TestCase):
         self.app.text_input[0].set_value("example-test-password")
         self.click("Sign in")
         self.app.session_state["quiz_learner"] = Learner("Jordan Avery")
+        self.app.session_state["study_ids"] = []
         self.addCleanup(lambda: self.assertFalse(self.app.exception))
 
     def click(self, label):
@@ -89,20 +90,33 @@ class AppTests(unittest.TestCase):
         self.assertIn("Reports to Mike Schultz", chart)
         self.app.text_input(key="chart_query").set_value("dehm mall").run()
         self.app.button(key="chart_match_041").click().run()
-        self.assertTrue(any("William Ford / Mike Schultz / Andrew Ball / Mallory Dehm" in item.value
-                            for item in self.app.html))
+        path = next(item.value for item in self.app.html if 'aria-label="Reporting path"' in item.value)
+        self.assertIn('data-chart-focus="043">William Ford', path)
+        self.assertIn('data-chart-focus="015">Andrew Ball', path)
+        self.assertIn('aria-current="page">Mallory Dehm', path)
         self.assertEqual(self.app.text_input(key="chart_query").value, "")
-        self.click("Back to Andrew Ball")
-        self.click("Top of chart")
-        self.assertTrue(any("Direct reports · 7" in item.value for item in self.app.html))
 
     def test_org_chart_includes_supervisors_added_from_paylocity(self):
         self.click("Open Staff Directory")
         self.app.text_input(key="chart_query").set_value("tr sTon").run()
         self.app.button(key="chart_match_014").click().run()
         self.assertTrue(any(item.value == "Reports to Mike Benson" for item in self.app.caption))
-        self.click("Back to Mike Benson")
-        self.assertTrue(any("Mike Benson" in item.value for item in self.app.html))
+        self.assertTrue(any('>Mike Benson</button>' in item.value for item in self.app.html))
+
+    def test_study_list_from_staff_directory_and_chart(self):
+        self.click("Open Staff Directory")
+        self.app.radio[0].set_value("Find staff").run()
+        self.app.text_input(key="staff_query").set_value("brad col").run()
+        self.click("Save Colton Bradley")
+        self.click("Home")
+        self.click("My study list")
+        self.assertTrue(any("Colton Bradley" in item.value for item in self.app.html))
+        self.click("View Colton Bradley in org chart")
+        self.assertEqual(self.app.session_state["chart_focus"], "001")
+        self.click("Remove Colton Bradley from study list")
+        self.click("Home")
+        self.click("My study list")
+        self.assertTrue(any("Save people" in message.value for message in self.app.info))
 
     def test_org_chart_search_handles_name_fragments_and_punctuation(self):
         self.click("Open Staff Directory")
@@ -183,7 +197,9 @@ class AppTests(unittest.TestCase):
             feedback = next(item.value for item in self.app.html if 'class="nac-feedback"' in item.value)
             outcome = "incorrect" if index == 0 else "correct"
             self.assertIn(f'data-outcome="{outcome}"', feedback)
-            self.assertIn(html.escape(correct), feedback)
+            reveal = next(item.value for item in self.app.html if 'class="nac-quiz-prompt nac-answer-reveal"' in item.value)
+            self.assertIn(html.escape(question.staff.name), reveal)
+            self.assertIn(html.escape(correct), reveal)
             self.click("See results" if index + 1 == len(attempt.questions) else "Next question")
         self.assertEqual(self.app.metric[0].value, "5 / 6")
         self.assertFalse(any(item.value == "Completion certificate" for item in self.app.subheader))
@@ -307,6 +323,9 @@ class AppTests(unittest.TestCase):
         self.assertTrue(any(item.value == "Completion certificate" for item in self.app.subheader))
         self.assertTrue(any(button.proto.label == "Download certificate (PDF)"
                             for button in self.app.get("download_button")))
+        _, pdf, preview = self.app.session_state["certificate_artwork"]
+        self.assertTrue(pdf.startswith(b"%PDF-"))
+        self.assertTrue(preview.startswith(b"\x89PNG\r\n\x1a\n"))
 
     def test_mastery_missing_photo_appears_only_in_the_answer_key(self):
         def sample_with_and_without_portrait(*args, **kwargs):
@@ -320,13 +339,13 @@ class AppTests(unittest.TestCase):
             self.assertEqual(len(attempt.questions), 1)
             self.assertEqual(len(attempt.review_questions), 1)
             person = attempt.review_questions[0].staff
-            self.assertFalse(any(person.name in item.value for item in self.app.html))
+            self.assertFalse(any(html.escape(person.name) in item.value for item in self.app.html))
             self.app.text_input[0].set_value(attempt.questions[0].staff.name)
             self.app.text_input[1].set_value(attempt.questions[0].staff.role)
             self.click("Submit exam")
         self.assertEqual([metric.value for metric in self.app.metric], ["2 / 2", "1 / 1", "1 / 1"])
         self.app.radio[0].set_value("Review-only profiles").run()
-        self.assertTrue(any(person.name in item.value for item in self.app.html))
+        self.assertTrue(any(html.escape(person.name) in item.value for item in self.app.html))
         self.assertTrue(any(item.value == "Review only" for item in self.app.caption))
         self.assertEqual(len(self.app.session_state["quiz_results"]["mastery_exam"][0].rows), 2)
 
